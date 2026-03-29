@@ -15,7 +15,7 @@ import { handleState } from './routes/state.js';
 export function startHttpServer(deps, port) {
   const server = Bun.serve({
     port,
-    fetch(req) {
+    async fetch(req) {
       const url = new URL(req.url);
       const path = url.pathname;
 
@@ -48,6 +48,18 @@ export function startHttpServer(deps, port) {
       const routingMatch = path.match(/^\/api\/routing\/(.+)$/);
       if (routingMatch) return handleRouting(req, routingMatch[1], deps);
 
+      // Serve static files from public/
+      if (path === '/' || !path.startsWith('/api')) {
+        const filePath = path === '/' ? '/index.html' : path;
+        const file = Bun.file('./public' + filePath);
+        const exists = await file.exists();
+        if (exists) {
+          const contentType = filePath.endsWith('.css') ? 'text/css' :
+                              filePath.endsWith('.js') ? 'application/javascript' :
+                              'text/html';
+          return new Response(file, { headers: { 'Content-Type': contentType } });
+        }
+      }
       return new Response('Not Found', { status: 404 });
     },
   });

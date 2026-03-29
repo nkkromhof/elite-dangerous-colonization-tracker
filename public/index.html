@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ED Colonization Tracker</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="header-title">ED Colonization Tracker</div>
+      <div class="zoom-controls">
+        <button class="zoom-btn" id="zoom-out">−</button>
+        <span class="zoom-display" id="zoom-display">100%</span>
+        <button class="zoom-btn" id="zoom-in">+</button>
+      </div>
+    </header>
+
+    <div class="tabs-container" id="tabs-container">
+      <!-- Tabs rendered by JS -->
+    </div>
+
+    <main class="main">
+      <div class="construction-card" id="construction-card">
+        <!-- Construction card rendered by JS -->
+      </div>
+    </main>
+
+    <div class="modal-overlay" id="delete-modal">
+      <div class="delete-confirm">
+        <h3>Delete Construction?</h3>
+        <p id="delete-modal-text">This will remove the construction and all its data.</p>
+        <div class="delete-confirm-buttons">
+          <button class="delete-confirm-btn cancel" id="delete-cancel">Cancel</button>
+          <button class="delete-confirm-btn confirm" id="delete-confirm">Delete</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="copy-toast" id="copy-toast">Copied!</div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
