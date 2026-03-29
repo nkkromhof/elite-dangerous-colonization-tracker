@@ -101,6 +101,19 @@ function connectSSE() {
     Object.assign(state.routing[data.constructionId], data.results);
     render();
   });
+  es.addEventListener('tab_change', (e) => {
+    const data = JSON.parse(e.data);
+    if (state.constructions.length === 0) return;
+    const currentIdx = state.constructions.findIndex(c => c.id === state.activeConstructionId);
+    let newIdx;
+    if (data.direction === 'next') {
+      newIdx = currentIdx >= state.constructions.length - 1 ? 0 : currentIdx + 1;
+    } else {
+      newIdx = currentIdx <= 0 ? state.constructions.length - 1 : currentIdx - 1;
+    }
+    state.activeConstructionId = state.constructions[newIdx].id;
+    render();
+  });
 }
 
 function setupEventListeners() {
