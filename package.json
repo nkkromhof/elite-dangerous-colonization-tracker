@@ -2,13 +2,13 @@
   "name": "ed-colonisation-tracker",
   "version": "0.1.0",
   "module": "index.js",
-  "type": "module",
   "scripts": {
     "start": "bun run index.js",
     "test": "bun test",
     "build": "bun build --compile --target=bun-windows-x64 ./index.js --outfile ed-colonisation-tracker.exe"
   },
+  "type": "module",
   "dependencies": {
-    "chokidar": "^3.6.0"
+    "chokidar": "3"
   }
 }

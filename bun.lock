@@ -3,9 +3,9 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "elite-dangerous-colonization-tracker",
+      "name": "ed-colonisation-tracker",
       "dependencies": {
-        "chokidar": "^3.6.0",
+        "chokidar": "3",
       },
     },
   },
