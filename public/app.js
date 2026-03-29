@@ -200,6 +200,54 @@ function renderTabs() {
   });
 }
 
+function buildGroupedCommodities(construction, routingData) {
+  const groups = new Map();
+
+  construction.commodities.forEach(commodity => {
+    const stations = routingData?.[commodity.name] || [];
+    if (stations.length === 0) {
+      const key = '__no_station__';
+      if (!groups.has(key)) {
+        groups.set(key, {
+          system: null,
+          systemDistanceLy: null,
+          station: null,
+          stationDistanceLs: null,
+          commodities: []
+        });
+      }
+      groups.get(key).commodities.push({ ...commodity, primaryStation: null });
+      return;
+    }
+
+    const primary = stations[0];
+    const key = `${primary.system}|${primary.name}`;
+    
+    if (!groups.has(key)) {
+      groups.set(key, {
+        system: primary.system,
+        systemDistanceLy: primary.distanceLy,
+        station: primary.name,
+        stationDistanceLs: null,
+        commodities: []
+      });
+    }
+    groups.get(key).commodities.push({ ...commodity, primaryStation: primary });
+  });
+
+  const sortedGroups = [...groups.values()].sort((a, b) => {
+    if (a.system === null) return 1;
+    if (b.system === null) return -1;
+    return b.commodities.length - a.commodities.length;
+  });
+
+  return sortedGroups.map(group => {
+    const active = group.commodities.filter(c => !isCommodityComplete(c));
+    const done = group.commodities.filter(c => isCommodityComplete(c));
+    return { ...group, commodities: [...active, ...done] };
+  });
+}
+
 function renderConstructionCard() {
   const construction = state.constructions.find(c => c.id === state.activeConstructionId);
   if (!construction) {
@@ -210,28 +258,8 @@ function renderConstructionCard() {
   const isComplete = construction.phase === 'done' || construction.commodities.every(isCommodityComplete);
   elements.constructionCard.className = `construction-card ${isComplete ? 'completed' : ''}`;
 
-  const sortedCommodities = [...construction.commodities];
-  const activeCommodities = sortedCommodities.filter(c => !isCommodityComplete(c));
-  const doneCommodities = sortedCommodities.filter(c => isCommodityComplete(c));
-  
-  activeCommodities.sort((a, b) => {
-    const col = state.sortColumn;
-    let aVal, bVal;
-    switch (col) {
-      case 'name': aVal = a.name; bVal = b.name; break;
-      case 'total': aVal = a.amount_required; bVal = b.amount_required; break;
-      case 'remaining': aVal = a.amount_required - a.amount_delivered; bVal = b.amount_required - b.amount_delivered; break;
-      case 'carrier': aVal = state.cargo.fc.find(c => c.name === a.name)?.count || 0; bVal = state.cargo.fc.find(c => c.name === b.name)?.count || 0; break;
-      case 'ship': aVal = state.cargo.ship.find(c => c.name === a.name)?.count || 0; bVal = state.cargo.ship.find(c => c.name === b.name)?.count || 0; break;
-      default: return 0;
-    }
-    if (typeof aVal === 'string') {
-      return state.sortAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-    }
-    return state.sortAsc ? aVal - bVal : bVal - aVal;
-  });
-
-  const sorted = [...activeCommodities, ...doneCommodities];
+  const routingData = state.routing[construction.id] || {};
+  const groups = buildGroupedCommodities(construction, routingData);
 
   const totals = {
     total: construction.commodities.reduce((s, c) => s + c.amount_required, 0),
@@ -246,12 +274,7 @@ function renderConstructionCard() {
     }, 0),
   };
 
-  const getSortIndicator = (col) => {
-    if (state.sortColumn !== col) return '↕';
-    return state.sortAsc ? '↑' : '↓';
-  };
-
-  elements.constructionCard.innerHTML = `
+  let html = `
     <div class="card-header">
       <div>
         <div class="card-title">${construction.station_name}</div>
@@ -261,11 +284,11 @@ function renderConstructionCard() {
     <table class="commodity-table">
       <thead>
         <tr>
-          <th data-sort="name">NAME <span class="sort-indicator">${getSortIndicator('name')}</span></th>
-          <th data-sort="total">TOTAL <span class="sort-indicator">${getSortIndicator('total')}</span></th>
-          <th data-sort="remaining">REMAINING <span class="sort-indicator">${getSortIndicator('remaining')}</span></th>
-          <th data-sort="carrier">CARRIER <span class="sort-indicator">${getSortIndicator('carrier')}</span></th>
-          <th data-sort="ship">SHIP <span class="sort-indicator">${getSortIndicator('ship')}</span></th>
+          <th>NAME</th>
+          <th>TOTAL</th>
+          <th>REMAINING</th>
+          <th>CARRIER</th>
+          <th>SHIP</th>
         </tr>
       </thead>
       <tbody>
@@ -276,36 +299,59 @@ function renderConstructionCard() {
           <td class="col-carrier">${totals.carrier}</td>
           <td class="col-ship">${totals.ship}</td>
         </tr>
-        ${sorted.map(c => {
-          const cargo = getCargoForCommodity(c.name);
-          const remaining = c.amount_required - c.amount_delivered;
-          const done = isCommodityComplete(c);
-          return `
-            <tr class="${done ? 'row-done' : ''}">
-              <td class="commodity-name">${c.name}</td>
-              <td class="col-total">${c.amount_required}</td>
-              <td class="${remaining > 0 ? 'col-remaining' : 'col-zero'}">${remaining}</td>
-              <td class="${cargo.fc > 0 ? 'col-carrier' : 'col-zero'}">${cargo.fc > 0 ? cargo.fc : '—'}</td>
-              <td class="${cargo.ship > 0 ? 'col-ship' : 'col-zero'}">${cargo.ship > 0 ? cargo.ship : '—'}</td>
-            </tr>
-          `;
-        }).join('')}
-      </tbody>
-    </table>
   `;
 
-  elements.constructionCard.querySelectorAll('th[data-sort]').forEach(th => {
-    th.addEventListener('click', () => {
-      const col = th.dataset.sort;
-      if (state.sortColumn === col) {
-        state.sortAsc = !state.sortAsc;
-      } else {
-        state.sortColumn = col;
-        state.sortAsc = false;
-      }
-      render();
-    });
+  groups.forEach(group => {
+    if (group.system === null) {
+      group.commodities.forEach(c => {
+        const cargo = getCargoForCommodity(c.name);
+        const remaining = c.amount_required - c.amount_delivered;
+        const done = isCommodityComplete(c);
+        html += `
+          <tr class="commodity-row ${done ? 'row-done' : ''}">
+            <td class="commodity-name">${c.name}</td>
+            <td class="col-total">${c.amount_required}</td>
+            <td class="${remaining > 0 ? 'col-remaining' : 'col-zero'}">${remaining}</td>
+            <td class="${cargo.fc > 0 ? 'col-carrier' : 'col-zero'}">${cargo.fc > 0 ? cargo.fc : '—'}</td>
+            <td class="${cargo.ship > 0 ? 'col-ship' : 'col-zero'}">${cargo.ship > 0 ? cargo.ship : '—'}</td>
+          </tr>
+        `;
+      });
+    } else {
+      html += `
+        <tr class="system-header-row">
+          <td colspan="5">System: ${group.system} (${group.systemDistanceLy} LY)</td>
+        </tr>
+      `;
+      
+      html += `
+        <tr class="station-row">
+          <td colspan="5">Station: ${group.station}</td>
+        </tr>
+      `;
+      
+      group.commodities.forEach(c => {
+        const cargo = getCargoForCommodity(c.name);
+        const remaining = c.amount_required - c.amount_delivered;
+        const done = isCommodityComplete(c);
+        const stationInfo = c.primaryStation 
+          ? `<span class="sourcing-info">${c.primaryStation.name} · ${c.primaryStation.distanceLy} LY</span>` 
+          : '';
+        html += `
+          <tr class="commodity-row ${done ? 'row-done' : ''}">
+            <td class="commodity-name">${c.name}${stationInfo}</td>
+            <td class="col-total">${c.amount_required}</td>
+            <td class="${remaining > 0 ? 'col-remaining' : 'col-zero'}">${remaining}</td>
+            <td class="${cargo.fc > 0 ? 'col-carrier' : 'col-zero'}">${cargo.fc > 0 ? cargo.fc : '—'}</td>
+            <td class="${cargo.ship > 0 ? 'col-ship' : 'col-zero'}">${cargo.ship > 0 ? cargo.ship : '—'}</td>
+          </tr>
+        `;
+      });
+    }
   });
+
+  html += '</tbody></table>';
+  elements.constructionCard.innerHTML = html;
 
   elements.constructionCard.querySelectorAll('.system-name').forEach(el => {
     el.addEventListener('click', () => copyToClipboard(el.dataset.copy));
