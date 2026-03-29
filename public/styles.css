@@ -209,6 +209,61 @@ html, body {
 .row-done { opacity: 0.35; }
 .row-done td { text-decoration: line-through; }
 
+/* SYSTEM HEADER ROW */
+.system-header-row {
+  background: #0d0d0d;
+  border-bottom: 2px solid var(--color-border);
+}
+
+.system-header-row td {
+  padding: 12px 12px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-primary);
+  border-bottom: none;
+}
+
+.system-header-row .system-distance {
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+/* STATION ROW */
+.station-row {
+  background: #141414;
+  border-bottom: 1px solid #2a2a2a;
+}
+
+.station-row td {
+  padding: 8px 12px 8px 36px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  border-bottom: none;
+}
+
+.station-row .station-distance {
+  color: #555;
+  font-weight: 400;
+}
+
+/* COMMODITY ROW */
+.commodity-row td {
+  padding: 10px 12px 10px 72px;
+  font-size: 20px;
+}
+
+.commodity-row .commodity-name {
+  font-weight: 600;
+}
+
+.commodity-row .sourcing-info {
+  color: var(--color-text-muted);
+  font-size: 14px;
+  font-weight: 400;
+  margin-left: 8px;
+}
+
 /* TOTALS ROW */
 .totals-row {
   background: #141414;
