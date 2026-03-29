@@ -3,8 +3,6 @@ const state = {
   cargo: { ship: [], fc: [] },
   routing: {},
   activeConstructionId: null,
-  sortColumn: 'remaining',
-  sortAsc: false,
   pendingDeleteId: null,
 };
 
