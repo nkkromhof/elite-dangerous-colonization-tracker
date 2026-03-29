@@ -1,6 +1,7 @@
 const state = {
   constructions: [],
   cargo: { ship: [], fc: [] },
+  routing: {},
   activeConstructionId: null,
   sortColumn: 'remaining',
   sortAsc: false,
@@ -92,6 +93,14 @@ function connectSSE() {
         construction.commodities.push(data.slot);
       }
     }
+    render();
+  });
+  es.addEventListener('routing_results', (e) => {
+    const data = JSON.parse(e.data);
+    if (!state.routing[data.constructionId]) {
+      state.routing[data.constructionId] = {};
+    }
+    Object.assign(state.routing[data.constructionId], data.results);
     render();
   });
 }
