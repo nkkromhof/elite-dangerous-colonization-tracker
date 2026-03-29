@@ -19,12 +19,14 @@ export function getCommoditySlots(constructionId) {
 }
 
 export function incrementDelivered(constructionId, commodityName, amount) {
-  getDb().run(
+  const result = getDb().run(
     `UPDATE commodity_slots
      SET amount_delivered = amount_delivered + ?, updated_at = ?
      WHERE construction_id = ? AND name = ?`,
     [amount, now(), constructionId, commodityName]
   );
+  if (result.changes === 0) return false;
+  return true;
 }
 
 export function recordDelivery({ id, construction_id, commodity_name, amount, source }) {
@@ -40,18 +42,29 @@ export function getDeliveries(constructionId) {
 }
 
 export function saveCargoState(shipCargo, fcCargo) {
-  getDb().run(
-    `INSERT INTO cargo_state (id, ship_cargo, fc_cargo, updated_at)
-     VALUES ('singleton', ?, ?, ?)
-     ON CONFLICT(id) DO UPDATE SET ship_cargo = excluded.ship_cargo, fc_cargo = excluded.fc_cargo, updated_at = excluded.updated_at`,
-    [JSON.stringify(shipCargo), JSON.stringify(fcCargo), now()]
-  );
+  try {
+    getDb().run(
+      `INSERT INTO cargo_state (id, ship_cargo, fc_cargo, updated_at)
+       VALUES ('singleton', ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET ship_cargo = excluded.ship_cargo, fc_cargo = excluded.fc_cargo, updated_at = excluded.updated_at`,
+      [JSON.stringify(shipCargo), JSON.stringify(fcCargo), now()]
+    );
+  } catch (e) {
+    getDb().run(
+      `INSERT OR REPLACE INTO cargo_state (id, ship_cargo, fc_cargo, updated_at) VALUES ('singleton', '[]', '[]', ?)`,
+      [now()]
+    );
+  }
 }
 
 export function loadCargoState() {
   const row = getDb().query("SELECT * FROM cargo_state WHERE id = 'singleton'").get();
   if (!row) return { ship: [], fc: [] };
-  return { ship: JSON.parse(row.ship_cargo), fc: JSON.parse(row.fc_cargo) };
+  try {
+    return { ship: JSON.parse(row.ship_cargo), fc: JSON.parse(row.fc_cargo) };
+  } catch {
+    return { ship: [], fc: [] };
+  }
 }
 
 export function saveJournalState(filePath, byteOffset) {
