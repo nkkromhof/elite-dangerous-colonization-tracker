@@ -19,16 +19,15 @@ html, body {
   width: 100%;
   height: 100vh;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: calc(16px * var(--zoom));
   background: var(--color-bg);
   color: var(--color-text);
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 .app {
   width: 100%;
-  height: 100%;
-  transform: scale(var(--zoom));
-  transform-origin: top left;
+  min-height: 100%;
   display: flex;
   flex-direction: column;
 }
@@ -37,17 +36,14 @@ html, body {
 .header {
   background: #141414;
   border-bottom: 2px solid var(--color-border);
-  padding: 16px 32px;
+  padding: 1rem 2rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-shrink: 0;
 }
 
-.header-title {
-  font-size: 28px;
-  font-weight: 700;
-}
+.header-title { font-size: 1.75rem; font-weight: 700; }
 
 .zoom-controls {
   display: flex;
@@ -56,13 +52,13 @@ html, body {
 }
 
 .zoom-btn {
-  width: 48px;
-  height: 48px;
+  width: 3rem;
+  height: 3rem;
   background: var(--color-surface);
   border: 2px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: 0.5rem;
   color: var(--color-text);
-  font-size: 24px;
+  font-size: 1.5rem;
   font-weight: 700;
   cursor: pointer;
   display: flex;
@@ -74,9 +70,9 @@ html, body {
 .zoom-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .zoom-display {
-  font-size: 24px;
+  font-size: 1.5rem;
   font-weight: 600;
-  min-width: 70px;
+  min-width: 4.375rem;
   text-align: center;
 }
 
@@ -84,9 +80,9 @@ html, body {
 .tabs-container {
   background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
-  padding: 12px 32px;
+  padding: 0.75rem 2rem;
   display: flex;
-  gap: 10px;
+  gap: 0.625rem;
   overflow-x: auto;
   flex-shrink: 0;
 }
@@ -94,13 +90,13 @@ html, body {
 .tab {
   background: #252525;
   border: 2px solid var(--color-border);
-  border-radius: 8px;
-  padding: 10px 18px;
-  font-size: 20px;
+  border-radius: 0.5rem;
+  padding: 0.625rem 1.125rem;
+  font-size: 1.25rem;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 0.625rem;
   white-space: nowrap;
 }
 
@@ -109,13 +105,13 @@ html, body {
 .tab.completed { opacity: 0.5; }
 
 .tab-delete {
-  width: 26px;
-  height: 26px;
+  width: 1.625rem;
+  height: 1.625rem;
   background: rgba(0,0,0,0.3);
   border: none;
-  border-radius: 5px;
+  border-radius: 0.3125rem;
   color: var(--color-text);
-  font-size: 16px;
+  font-size: 1rem;
   cursor: pointer;
   opacity: 0;
   transition: opacity 0.2s;
@@ -127,16 +123,15 @@ html, body {
 /* MAIN */
 .main {
   flex: 1;
-  padding: 24px;
+  padding: 1.5rem;
   overflow-y: auto;
 }
 
-/* CONSTRUCTION CARD */
 .construction-card {
   background: var(--color-surface);
   border: 2px solid var(--color-border);
-  border-radius: 12px;
-  padding: 24px;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
 }
 
 .construction-card.completed { opacity: 0.5; }
@@ -145,13 +140,10 @@ html, body {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 20px;
+  margin-bottom: 1.25rem;
 }
 
-.card-title {
-  font-size: 30px;
-  font-weight: 700;
-}
+.card-title { font-size: 1.875rem; font-weight: 700; }
 
 .system-name {
   color: var(--color-primary);
@@ -165,8 +157,8 @@ html, body {
 
 .card-subtitle {
   color: var(--color-text-muted);
-  font-size: 18px;
-  margin-top: 4px;
+  font-size: 1.125rem;
+  margin-top: 0.25rem;
 }
 
 /* TABLE */
@@ -177,9 +169,9 @@ html, body {
 
 .commodity-table th {
   text-align: left;
-  padding: 10px 12px;
+  padding: 0.625rem 0.75rem;
   color: #aaa;
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -194,8 +186,8 @@ html, body {
 .commodity-table th.sorted .sort-indicator { opacity: 1; }
 
 .commodity-table td {
-  padding: 14px 12px;
-  font-size: 22px;
+  padding: 0.875rem 0.75rem;
+  font-size: 1.375rem;
   border-bottom: 1px solid #2a2a2a;
   vertical-align: middle;
 }
@@ -216,8 +208,8 @@ html, body {
 }
 
 .system-header-row td {
-  padding: 12px 12px;
-  font-size: 18px;
+  padding: 0.75rem;
+  font-size: 1.125rem;
   font-weight: 700;
   color: var(--color-primary);
   border-bottom: none;
@@ -235,8 +227,8 @@ html, body {
 }
 
 .station-row td {
-  padding: 8px 12px 8px 36px;
-  font-size: 16px;
+  padding: 0.5rem 0.75rem 0.5rem 2.25rem;
+  font-size: 1rem;
   font-weight: 600;
   color: var(--color-text-muted);
   border-bottom: none;
@@ -249,8 +241,8 @@ html, body {
 
 /* COMMODITY ROW */
 .commodity-row td {
-  padding: 10px 12px 10px 72px;
-  font-size: 20px;
+  padding: 0.625rem 0.75rem 0.625rem 4.5rem;
+  font-size: 1.25rem;
 }
 
 .commodity-row .commodity-name {
@@ -259,15 +251,15 @@ html, body {
 
 .commodity-row .sourcing-info {
   color: var(--color-text-muted);
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 400;
-  margin-left: 8px;
+  margin-left: 0.5rem;
 }
 
 /* TOTALS ROW */
 .totals-row {
   background: #141414;
-  font-size: 16px;
+  font-size: 1rem;
   color: #666;
 }
 
@@ -297,21 +289,21 @@ html, body {
 .delete-confirm {
   background: var(--color-surface);
   border: 3px solid var(--color-danger);
-  border-radius: 16px;
-  padding: 32px;
+  border-radius: 1rem;
+  padding: 2rem;
   text-align: center;
-  max-width: 400px;
+  max-width: 25rem;
 }
 
-.delete-confirm h3 { font-size: 26px; margin-bottom: 16px; }
-.delete-confirm p { font-size: 20px; color: var(--color-text-muted); margin-bottom: 24px; }
+.delete-confirm h3 { font-size: 1.625rem; margin-bottom: 1rem; }
+.delete-confirm p { font-size: 1.25rem; color: var(--color-text-muted); margin-bottom: 1.5rem; }
 
-.delete-confirm-buttons { display: flex; gap: 16px; justify-content: center; }
+.delete-confirm-buttons { display: flex; gap: 1rem; justify-content: center; }
 
 .delete-confirm-btn {
-  padding: 14px 28px;
-  border-radius: 8px;
-  font-size: 20px;
+  padding: 0.875rem 1.75rem;
+  border-radius: 0.5rem;
+  font-size: 1.25rem;
   font-weight: 600;
   cursor: pointer;
   border: none;
@@ -331,14 +323,14 @@ html, body {
 /* COPY TOAST */
 .copy-toast {
   position: fixed;
-  bottom: 32px;
+  bottom: 2rem;
   left: 50%;
   transform: translateX(-50%);
   background: var(--color-primary);
   color: #fff;
-  padding: 12px 24px;
-  border-radius: 8px;
-  font-size: 18px;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  font-size: 1.125rem;
   opacity: 0;
   transition: opacity 0.3s;
   pointer-events: none;

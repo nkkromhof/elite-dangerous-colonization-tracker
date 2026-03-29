@@ -29,17 +29,17 @@ function init() {
 function loadZoom() {
   const saved = localStorage.getItem('ed-tracker-zoom');
   if (saved) {
-    setZoom(parseInt(saved));
+    setZoom(parseFloat(saved));
   }
 }
 
 function setZoom(value) {
-  const clamped = Math.max(50, Math.min(200, value));
-  document.documentElement.style.setProperty('--zoom', clamped / 100);
-  elements.zoomDisplay.textContent = clamped + '%';
-  elements.zoomOut.disabled = clamped <= 50;
-  elements.zoomIn.disabled = clamped >= 200;
-  localStorage.setItem('ed-tracker-zoom', clamped);
+  const clamped = Math.max(0.5, Math.min(2.0, value));
+  document.documentElement.style.setProperty('--zoom', clamped.toFixed(2));
+  elements.zoomDisplay.textContent = Math.round(clamped * 100) + '%';
+  elements.zoomOut.disabled = clamped <= 0.5;
+  elements.zoomIn.disabled = clamped >= 2.0;
+  localStorage.setItem('ed-tracker-zoom', clamped.toFixed(2));
 }
 
 async function fetchState() {
@@ -105,12 +105,12 @@ function connectSSE() {
 
 function setupEventListeners() {
   elements.zoomOut.addEventListener('click', () => {
-    const current = parseInt(localStorage.getItem('ed-tracker-zoom') || '100');
-    setZoom(current - 10);
+    const current = parseFloat(localStorage.getItem('ed-tracker-zoom') || '1');
+    setZoom(current - 0.1);
   });
   elements.zoomIn.addEventListener('click', () => {
-    const current = parseInt(localStorage.getItem('ed-tracker-zoom') || '100');
-    setZoom(current + 10);
+    const current = parseFloat(localStorage.getItem('ed-tracker-zoom') || '1');
+    setZoom(current + 0.1);
   });
   elements.deleteCancel.addEventListener('click', closeDeleteModal);
   elements.deleteConfirm.addEventListener('click', confirmDelete);
