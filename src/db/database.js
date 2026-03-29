@@ -1,9 +1,8 @@
 import { Database } from 'bun:sqlite';
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+const __dirname = dirname(import.meta.filename);
 
 /** @type {import('bun:sqlite').Database | null} */
 let _db = null;
