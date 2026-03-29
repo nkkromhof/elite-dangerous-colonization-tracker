@@ -1,2 +1,6 @@
 .worktrees/
 worktrees/
+node_modules/
+data/
+*.exe
+bun.lockb
