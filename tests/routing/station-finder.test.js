@@ -22,7 +22,7 @@ describe('StationFinder', () => {
   test('findNearest returns array of station results', async () => {
     const results = await finder.findNearest('Liquid Oxygen', 'Sol');
     expect(results.length).toBeGreaterThan(0);
-    expect(results[0]).toMatchObject({ name: 'Galileo', system_name: 'Sol' });
+    expect(results[0]).toMatchObject({ name: 'Galileo', system: 'Sol', distanceLy: 0.0, padSize: 'L', type: 'Orbis Starport', commodity: 'Liquid Oxygen' });
   });
 
   test('caches results on repeated calls', async () => {
@@ -35,6 +35,17 @@ describe('StationFinder', () => {
     await f.findNearest('Liquid Oxygen', 'Sol');
     await f.findNearest('Liquid Oxygen', 'Sol');
     expect(callCount).toBe(1);
+  });
+
+  test('minPad=L filters out M and S stations', async () => {
+    const results = await finder.findNearest('Liquid Oxygen', 'Sol', 'both', 100, 'L');
+    expect(results.every(r => r.padSize === 'L')).toBe(true);
+    expect(results.length).toBe(1);
+  });
+
+  test('minPad=M keeps M and L stations', async () => {
+    const results = await finder.findNearest('Liquid Oxygen', 'Sol', 'both', 100, 'M');
+    expect(results.length).toBe(2);
   });
 
   test('throws on non-ok response', async () => {

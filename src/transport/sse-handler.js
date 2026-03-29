@@ -8,6 +8,7 @@ const EVENT_MAP = {
   'delivery:recorded':          'delivery_recorded',
   'journal:connected':          'journal_connected',
   'journal:error':              'journal_error',
+  'routing:results':            'routing_results',
 };
 
 export class SseHandler {
@@ -56,6 +57,8 @@ export class SseHandler {
       try { ctrl.enqueue(encoded); } catch { this._clients.delete(ctrl); }
     }
   }
+
+  broadcast(type, data) { this._broadcast(type, data); }
 
   clientCount() { return this._clients.size; }
 }

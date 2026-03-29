@@ -1,5 +1,6 @@
 import { handleConstructions, handleConstruction, handleCommodities } from './routes/constructions.js';
 import { handlePhaseTransition } from './routes/phase.js';
+import { handleHotkey } from './routes/hotkey.js';
 import { handleRouting } from './routes/routing.js';
 import { handleState } from './routes/state.js';
 
@@ -26,6 +27,10 @@ export function startHttpServer(deps, port) {
 
       // SSE stream
       if (path === '/api/events') return deps.sseHandler.createStream();
+
+      // Hotkey tab navigation
+      if (path === '/api/hotkey/next-tab') return handleHotkey(req, 'next', deps);
+      if (path === '/api/hotkey/prev-tab') return handleHotkey(req, 'prev', deps);
 
       // State snapshot
       if (path === '/api/state') return handleState(req, deps);

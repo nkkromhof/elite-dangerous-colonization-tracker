@@ -10,6 +10,7 @@ import { ConstructionManager } from './src/core/construction-manager.js';
 import { DeliveryDetector } from './src/core/delivery-detector.js';
 import { PhaseMachine } from './src/core/phase-machine.js';
 import { StationFinder } from './src/routing/station-finder.js';
+import { AutoRouter } from './src/routing/auto-router.js';
 import { SseHandler } from './src/transport/sse-handler.js';
 import { startHttpServer } from './src/transport/http-server.js';
 import { readFileSync } from 'fs';
@@ -42,6 +43,7 @@ eventBus.on('cargo:updated', ({ ship, fc }) => saveCargoState(ship, fc));
 
 const sseHandler = new SseHandler(eventBus);
 const finder = new StationFinder({ spanshApiBase: config.spanshApiBase, stationCacheTtlMs: config.stationCacheTtlMs });
+new AutoRouter(eventBus, constructionManager, finder);
 startHttpServer({ manager: constructionManager, machine: phaseMachine, finder, cargoTracker, sseHandler }, config.port);
 
 const watcher = new JournalWatcher(config.journalDir, eventBus);
