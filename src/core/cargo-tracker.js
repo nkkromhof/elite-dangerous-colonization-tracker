@@ -13,6 +13,11 @@ export class CargoTracker {
     eventBus.on('cargo:consumed', (e) => this._handleConsumed(e));
   }
 
+  setShipCargo(cargo) {
+    this._ship = [...cargo];
+    this._bus.emit('cargo:updated', { ship: this.getShipCargo(), fc: this.getFcCargo() });
+  }
+
   _handleConsumed(e) {
     this._adjust(this._ship, e.commodity, -e.amount);
     this._bus.emit('cargo:updated', { ship: this.getShipCargo(), fc: this.getFcCargo() });
@@ -23,29 +28,12 @@ export class CargoTracker {
       case 'Docked':
         if (e.StationType === 'FleetCarrier') this._fcMarketId = e.MarketID;
         return;
-      case 'MarketBuy':
-        this._adjust(this._ship, e.Type_Localised ?? e.Type, e.Count);
-        break;
-      case 'MarketSell':
-        this._adjust(this._ship, e.Type_Localised ?? e.Type, -e.Count);
-        break;
-      case 'EjectCargo':
-        this._adjust(this._ship, e.Type_Localised ?? e.Type, -e.Count);
-        break;
       case 'CargoTransfer':
         for (const t of e.Transfers ?? []) {
           const name = t.Type_Localised ?? t.Type;
-          if (t.Direction === 'tocarrier') {
-            this._adjust(this._ship, name, -t.Count);
-            this._adjust(this._fc,   name,  t.Count);
-          } else if (t.Direction === 'toship') {
-            this._adjust(this._fc,   name, -t.Count);
-            this._adjust(this._ship, name,  t.Count);
-          }
+          if (t.Direction === 'tocarrier') this._adjust(this._fc, name,  t.Count);
+          else if (t.Direction === 'toship') this._adjust(this._fc, name, -t.Count);
         }
-        break;
-      case 'Died':
-        this._ship = [];
         break;
       default:
         return;
