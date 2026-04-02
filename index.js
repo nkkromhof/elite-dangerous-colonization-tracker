@@ -40,6 +40,9 @@ const readCargo = () => {
   }
 };
 
+// Sync ship cargo from Cargo.json immediately on startup
+cargoTracker.setShipCargo(readCargo());
+
 new DeliveryDetector(eventBus, constructionManager);
 
 eventBus.on('journal:cargo_changed', () => cargoTracker.setShipCargo(readCargo()));
