@@ -25,7 +25,7 @@ const { filePath: lastJournalFile, byteOffset: lastOffset } = loadJournalState()
 const cargoTracker = new CargoTracker(eventBus, { ship: savedShip, fc: savedFc });
 const constructionManager = new ConstructionManager(eventBus);
 const phaseMachine = new PhaseMachine(eventBus);
-const shipTracker = new ShipTracker(eventBus);
+const shipTracker = new ShipTracker(eventBus, config.journalDir);
 
 const readCargo = () => {
   try {
