@@ -337,6 +337,8 @@ function renderConstructionCard() {
         </tr>
   `;
 
+  construction.commodities.sort((a, b) => b.amount_required - a.amount_required);
+
   construction.commodities.forEach(c => {
     const cargo = getCargoForCommodity(c.name);
     const remaining = c.amount_required - c.amount_delivered;
