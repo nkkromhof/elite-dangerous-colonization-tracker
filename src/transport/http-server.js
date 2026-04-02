@@ -1,14 +1,12 @@
 import { handleConstructions, handleConstruction, handleCommodities } from './routes/constructions.js';
 import { handlePhaseTransition } from './routes/phase.js';
 import { handleHotkey } from './routes/hotkey.js';
-import { handleRouting } from './routes/routing.js';
 import { handleState } from './routes/state.js';
 
 /**
  * @param {object} deps
  * @param {import('../core/construction-manager.js').ConstructionManager} deps.manager
  * @param {import('../core/phase-machine.js').PhaseMachine} deps.machine
- * @param {import('../routing/station-finder.js').StationFinder} deps.finder
  * @param {import('../core/cargo-tracker.js').CargoTracker} deps.cargoTracker
  * @param {import('./sse-handler.js').SseHandler} deps.sseHandler
  * @param {number} port
@@ -49,9 +47,6 @@ export function startHttpServer(deps, port) {
 
       const commodityMatch = path.match(/^\/api\/constructions\/([^/]+)\/commodities\/(.+)$/);
       if (commodityMatch) return handleCommodities(req, commodityMatch[1], deps);
-
-      const routingMatch = path.match(/^\/api\/routing\/(.+)$/);
-      if (routingMatch) return handleRouting(req, routingMatch[1], deps);
 
       // Serve static files from public/
       if (path === '/' || !path.startsWith('/api')) {

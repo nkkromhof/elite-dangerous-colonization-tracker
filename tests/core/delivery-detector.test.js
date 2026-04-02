@@ -30,7 +30,7 @@ describe('DeliveryDetector', () => {
     );
     const deliveries = [];
     bus.on('delivery:detected', d => deliveries.push(d));
-    bus.emit('journal:event', { event: 'Docked', StationName: CONSTRUCTION_NAME, MarketID: CONSTRUCTION_MARKET_ID, StationType: 'SurfaceStation' });
+    bus.emit('journal:event', { event: 'Docked', StationName: CONSTRUCTION_NAME, MarketID: CONSTRUCTION_MARKET_ID, StationType: 'SpaceConstructionDepot' });
     bus.emit('journal:event', { event: 'Undocked', StationName: CONSTRUCTION_NAME, MarketID: CONSTRUCTION_MARKET_ID });
     expect(deliveries).toHaveLength(1);
     expect(deliveries[0].commodity).toBe('Liquid Oxygen');
@@ -57,7 +57,7 @@ describe('DeliveryDetector', () => {
     );
     const deliveries = [];
     bus.on('delivery:detected', d => deliveries.push(d));
-    bus.emit('journal:event', { event: 'Docked', StationName: CONSTRUCTION_NAME, MarketID: CONSTRUCTION_MARKET_ID, StationType: 'SurfaceStation' });
+    bus.emit('journal:event', { event: 'Docked', StationName: CONSTRUCTION_NAME, MarketID: CONSTRUCTION_MARKET_ID, StationType: 'SpaceConstructionDepot' });
     bus.emit('journal:event', { event: 'EjectCargo', Type: 'Liquid Oxygen', Type_Localised: 'Liquid Oxygen', Count: 10 });
     bus.emit('journal:event', { event: 'Undocked', StationName: CONSTRUCTION_NAME, MarketID: CONSTRUCTION_MARKET_ID });
     // 100 disappeared, 10 ejected → 90 delivered

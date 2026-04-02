@@ -10,6 +10,12 @@ export class CargoTracker {
     this._fcMarketId = null;
 
     eventBus.on('journal:event', (e) => this._handle(e));
+    eventBus.on('cargo:consumed', (e) => this._handleConsumed(e));
+  }
+
+  _handleConsumed(e) {
+    this._adjust(this._ship, e.commodity, -e.amount);
+    this._bus.emit('cargo:updated', { ship: this.getShipCargo(), fc: this.getFcCargo() });
   }
 
   _handle(e) {

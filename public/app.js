@@ -1,9 +1,9 @@
 const state = {
   constructions: [],
   cargo: { ship: [], fc: [] },
-  routing: {},
   activeConstructionId: null,
   pendingDeleteId: null,
+  sessionErrors: [],
 };
 
 const elements = {
@@ -17,6 +17,11 @@ const elements = {
   zoomOut: document.getElementById('zoom-out'),
   zoomIn: document.getElementById('zoom-in'),
   zoomDisplay: document.getElementById('zoom-display'),
+  statusWidget: document.getElementById('status-widget'),
+  statusIcon: document.getElementById('status-icon'),
+  statusCount: document.getElementById('status-count'),
+  statusDropdown: document.getElementById('status-dropdown'),
+  statusList: document.getElementById('status-list'),
 };
 
 function init() {
@@ -74,13 +79,13 @@ function connectSSE() {
     }
     render();
   });
-  es.addEventListener('construction:added', (e) => {
+  es.addEventListener('construction_added', (e) => {
     const construction = JSON.parse(e.data);
     state.constructions.push(construction);
     state.activeConstructionId = construction.id;
     render();
   });
-  es.addEventListener('commodity:updated', (e) => {
+  es.addEventListener('commodity_updated', (e) => {
     const data = JSON.parse(e.data);
     const construction = state.constructions.find(c => c.id === data.constructionId);
     if (construction) {
@@ -91,14 +96,6 @@ function connectSSE() {
         construction.commodities.push(data.slot);
       }
     }
-    render();
-  });
-  es.addEventListener('routing_results', (e) => {
-    const data = JSON.parse(e.data);
-    if (!state.routing[data.constructionId]) {
-      state.routing[data.constructionId] = {};
-    }
-    Object.assign(state.routing[data.constructionId], data.results);
     render();
   });
   es.addEventListener('tab_change', (e) => {
@@ -113,6 +110,14 @@ function connectSSE() {
     }
     state.activeConstructionId = state.constructions[newIdx].id;
     render();
+  });
+  es.addEventListener('app_error', (e) => {
+    const error = JSON.parse(e.data);
+    state.sessionErrors.unshift(error);
+    if (state.sessionErrors.length > 50) {
+      state.sessionErrors.pop();
+    }
+    renderStatusWidget();
   });
 }
 
@@ -129,6 +134,13 @@ function setupEventListeners() {
   elements.deleteConfirm.addEventListener('click', confirmDelete);
   elements.deleteModal.addEventListener('click', (e) => {
     if (e.target === elements.deleteModal) closeDeleteModal();
+  });
+  elements.statusWidget.addEventListener('click', (e) => {
+    e.stopPropagation();
+    elements.statusDropdown.classList.toggle('visible');
+  });
+  document.addEventListener('click', () => {
+    elements.statusDropdown.classList.remove('visible');
   });
 }
 
@@ -180,6 +192,34 @@ function isCommodityComplete(commodity) {
 function render() {
   renderTabs();
   renderConstructionCard();
+  renderStatusWidget();
+}
+
+function renderStatusWidget() {
+  const count = state.sessionErrors.length;
+  const hasErrors = count > 0;
+  
+  elements.statusIcon.textContent = hasErrors ? '!' : '✓';
+  elements.statusIcon.className = 'status-icon' + (hasErrors ? ' has-errors' : '');
+  elements.statusCount.textContent = hasErrors ? count : '';
+  elements.statusCount.className = 'status-count' + (hasErrors ? ' has-errors' : '');
+  
+  if (count === 0) {
+    elements.statusList.innerHTML = '<div class="status-item" style="color:var(--color-text-muted);">No errors this session</div>';
+    return;
+  }
+  
+  elements.statusList.innerHTML = state.sessionErrors.map(err => {
+    const time = new Date(err.timestamp).toLocaleTimeString();
+    return `
+      <div class="status-item">
+        <div class="status-item-time">${time}</div>
+        <div class="status-item-source">${err.source}</div>
+        <div class="status-item-message">${err.message}</div>
+        ${err.details ? `<div class="status-item-details">${err.details}</div>` : ''}
+      </div>
+    `;
+  }).join('');
 }
 
 function renderTabs() {
@@ -211,54 +251,6 @@ function renderTabs() {
   });
 }
 
-function buildGroupedCommodities(construction, routingData) {
-  const groups = new Map();
-
-  construction.commodities.forEach(commodity => {
-    const stations = routingData?.[commodity.name] || [];
-    if (stations.length === 0) {
-      const key = '__no_station__';
-      if (!groups.has(key)) {
-        groups.set(key, {
-          system: null,
-          systemDistanceLy: null,
-          station: null,
-          stationDistanceLs: null,
-          commodities: []
-        });
-      }
-      groups.get(key).commodities.push({ ...commodity, primaryStation: null });
-      return;
-    }
-
-    const primary = stations[0];
-    const key = `${primary.system}|${primary.name}`;
-    
-    if (!groups.has(key)) {
-      groups.set(key, {
-        system: primary.system,
-        systemDistanceLy: primary.distanceLy,
-        station: primary.name,
-        stationDistanceLs: null,
-        commodities: []
-      });
-    }
-    groups.get(key).commodities.push({ ...commodity, primaryStation: primary });
-  });
-
-  const sortedGroups = [...groups.values()].sort((a, b) => {
-    if (a.system === null) return 1;
-    if (b.system === null) return -1;
-    return b.commodities.length - a.commodities.length;
-  });
-
-  return sortedGroups.map(group => {
-    const active = group.commodities.filter(c => !isCommodityComplete(c));
-    const done = group.commodities.filter(c => isCommodityComplete(c));
-    return { ...group, commodities: [...active, ...done] };
-  });
-}
-
 function renderConstructionCard() {
   const construction = state.constructions.find(c => c.id === state.activeConstructionId);
   if (!construction) {
@@ -268,9 +260,6 @@ function renderConstructionCard() {
 
   const isComplete = construction.phase === 'done' || construction.commodities.every(isCommodityComplete);
   elements.constructionCard.className = `construction-card ${isComplete ? 'completed' : ''}`;
-
-  const routingData = state.routing[construction.id] || {};
-  const groups = buildGroupedCommodities(construction, routingData);
 
   const totals = {
     total: construction.commodities.reduce((s, c) => s + c.amount_required, 0),
@@ -312,53 +301,19 @@ function renderConstructionCard() {
         </tr>
   `;
 
-  groups.forEach(group => {
-    if (group.system === null) {
-      group.commodities.forEach(c => {
-        const cargo = getCargoForCommodity(c.name);
-        const remaining = c.amount_required - c.amount_delivered;
-        const done = isCommodityComplete(c);
-        html += `
-          <tr class="commodity-row ${done ? 'row-done' : ''}">
-            <td class="commodity-name">${c.name}</td>
-            <td class="col-total">${c.amount_required}</td>
-            <td class="${remaining > 0 ? 'col-remaining' : 'col-zero'}">${remaining}</td>
-            <td class="${cargo.fc > 0 ? 'col-carrier' : 'col-zero'}">${cargo.fc > 0 ? cargo.fc : '—'}</td>
-            <td class="${cargo.ship > 0 ? 'col-ship' : 'col-zero'}">${cargo.ship > 0 ? cargo.ship : '—'}</td>
-          </tr>
-        `;
-      });
-    } else {
-      html += `
-        <tr class="system-header-row">
-          <td colspan="5">System: ${group.system} (${group.systemDistanceLy} LY)</td>
-        </tr>
-      `;
-      
-      html += `
-        <tr class="station-row">
-          <td colspan="5">Station: ${group.station}</td>
-        </tr>
-      `;
-      
-      group.commodities.forEach(c => {
-        const cargo = getCargoForCommodity(c.name);
-        const remaining = c.amount_required - c.amount_delivered;
-        const done = isCommodityComplete(c);
-        const stationInfo = c.primaryStation 
-          ? `<span class="sourcing-info">${c.primaryStation.name} · ${c.primaryStation.distanceLy} LY</span>` 
-          : '';
-        html += `
-          <tr class="commodity-row ${done ? 'row-done' : ''}">
-            <td class="commodity-name">${c.name}${stationInfo}</td>
-            <td class="col-total">${c.amount_required}</td>
-            <td class="${remaining > 0 ? 'col-remaining' : 'col-zero'}">${remaining}</td>
-            <td class="${cargo.fc > 0 ? 'col-carrier' : 'col-zero'}">${cargo.fc > 0 ? cargo.fc : '—'}</td>
-            <td class="${cargo.ship > 0 ? 'col-ship' : 'col-zero'}">${cargo.ship > 0 ? cargo.ship : '—'}</td>
-          </tr>
-        `;
-      });
-    }
+  construction.commodities.forEach(c => {
+    const cargo = getCargoForCommodity(c.name);
+    const remaining = c.amount_required - c.amount_delivered;
+    const done = isCommodityComplete(c);
+    html += `
+      <tr class="commodity-row ${done ? 'row-done' : ''}">
+        <td class="commodity-name">${c.name}</td>
+        <td class="col-total">${c.amount_required}</td>
+        <td class="${remaining > 0 ? 'col-remaining' : 'col-zero'}">${remaining}</td>
+        <td class="${cargo.fc > 0 ? 'col-carrier' : 'col-zero'}">${cargo.fc > 0 ? cargo.fc : '—'}</td>
+        <td class="${cargo.ship > 0 ? 'col-ship' : 'col-zero'}">${cargo.ship > 0 ? cargo.ship : '—'}</td>
+      </tr>
+    `;
   });
 
   html += '</tbody></table>';

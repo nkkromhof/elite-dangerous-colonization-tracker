@@ -8,7 +8,7 @@ const EVENT_MAP = {
   'delivery:recorded':          'delivery_recorded',
   'journal:connected':          'journal_connected',
   'journal:error':              'journal_error',
-  'routing:results':            'routing_results',
+  'app:error':                  'app_error',
 };
 
 export class SseHandler {

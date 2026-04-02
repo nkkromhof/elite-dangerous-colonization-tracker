@@ -1,7 +1,8 @@
 import { watch as chokidarWatch } from 'chokidar';
-import { readdirSync, createReadStream } from 'fs';
+import { readdirSync, createReadStream, statSync, existsSync } from 'fs';
 import { join } from 'path';
 import { createInterface } from 'readline';
+import { emitError } from './event-bus.js';
 
 export class JournalWatcher {
   /** @param {string} journalDir @param {import('events').EventEmitter} eventBus */
@@ -11,10 +12,18 @@ export class JournalWatcher {
     this._watcher = null;
     this._currentFile = null;
     this._byteOffset = 0;
+    this._journalDirError = false;
   }
 
   /** Find the most recently modified Journal.*.log */
   _findLatestJournal() {
+    if (!existsSync(this.journalDir)) {
+      if (!this._journalDirError) {
+        emitError('Journal', `Journal directory not found`, this.journalDir);
+        this._journalDirError = true;
+      }
+      return null;
+    }
     try {
       const files = readdirSync(this.journalDir)
         .filter(f => /^Journal\.\d{4}-\d{2}-\d{2}T\d{6}\.\d+\.log$/.test(f))
@@ -22,7 +31,8 @@ export class JournalWatcher {
       if (!files.length) return null;
       files.sort((a, b) => b.name.localeCompare(a.name));
       return files[0].path;
-    } catch {
+    } catch (e) {
+      emitError('Journal', `Cannot read journal directory`, e.message);
       return null;
     }
   }
@@ -31,6 +41,7 @@ export class JournalWatcher {
   async _readFrom(filePath, offset = 0) {
     return new Promise((resolve) => {
       let newOffset = offset;
+      let seenStartup = offset === 0 ? false : true; // If reading from offset 0, wait for StartUp
       const stream = createReadStream(filePath, { start: offset, encoding: 'utf8' });
       const rl = createInterface({ input: stream, crlfDelay: Infinity });
       const lines = [];
@@ -38,6 +49,16 @@ export class JournalWatcher {
         if (!line.trim()) return;
         try {
           const parsed = JSON.parse(line);
+          // Skip all events until we see StartUp (fresh game session)
+          if (!seenStartup) {
+            if (parsed.event === 'StartUp') {
+              seenStartup = true;
+              console.log('[JournalWatcher] Session started, processing events');
+            } else {
+              newOffset += Buffer.byteLength(line + '\n', 'utf8');
+              return; // Skip pre-StartUp events
+            }
+          }
           lines.push(parsed);
           newOffset += Buffer.byteLength(line + '\n', 'utf8');
         } catch { /* skip malformed */ }
@@ -46,14 +67,23 @@ export class JournalWatcher {
         lines.forEach(parsed => this.bus.emit('journal:event', parsed));
         resolve(newOffset);
       });
-      stream.on('error', () => resolve(offset));
+      stream.on('error', (err) => {
+        emitError('Journal', `Error reading log file`, `${filePath}: ${err.message}`);
+        resolve(offset);
+      });
     });
   }
 
-  async start(initialOffset = 0) {
+  async start(initialOffset = null) {
     const latestJournal = this._findLatestJournal();
     if (latestJournal) {
       this._currentFile = latestJournal;
+      // If no saved offset (first run), start from end of file (only watch new events)
+      if (initialOffset === null || initialOffset === 0) {
+        const stats = statSync(latestJournal);
+        initialOffset = stats.size;
+        console.log(`[JournalWatcher] First run - starting from end of journal at offset ${initialOffset}`);
+      }
       this._byteOffset = await this._readFrom(latestJournal, initialOffset);
     }
 

@@ -45,6 +45,117 @@ html, body {
 
 .header-title { font-size: 1.75rem; font-weight: 700; }
 
+.header-status {
+  position: relative;
+}
+
+.status-widget {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.status-widget:hover {
+  border-color: var(--color-primary);
+}
+
+.status-icon {
+  font-size: 1.25rem;
+  color: var(--color-success);
+}
+
+.status-icon.has-errors {
+  color: var(--color-danger);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.status-count {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.status-count.has-errors {
+  color: var(--color-danger);
+}
+
+.status-dropdown {
+  display: none;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 8px;
+  width: 400px;
+  max-height: 300px;
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: 0.5rem;
+  z-index: 100;
+  overflow: hidden;
+}
+
+.status-dropdown.visible {
+  display: block;
+}
+
+.status-header {
+  padding: 12px 16px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  border-bottom: 1px solid var(--color-border);
+  background: #141414;
+}
+
+.status-list {
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.status-item {
+  padding: 12px 16px;
+  border-bottom: 1px solid #2a2a2a;
+  font-size: 0.9375rem;
+}
+
+.status-item:last-child {
+  border-bottom: none;
+}
+
+.status-item-time {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-bottom: 4px;
+}
+
+.status-item-source {
+  font-weight: 600;
+  color: var(--color-danger);
+  margin-bottom: 2px;
+}
+
+.status-item-message {
+  color: var(--color-text);
+}
+
+.status-item-details {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  margin-top: 4px;
+  word-break: break-all;
+}
+
 .zoom-controls {
   display: flex;
   align-items: center;

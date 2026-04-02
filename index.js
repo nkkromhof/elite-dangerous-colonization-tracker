@@ -9,8 +9,6 @@ import { CargoTracker } from './src/core/cargo-tracker.js';
 import { ConstructionManager } from './src/core/construction-manager.js';
 import { DeliveryDetector } from './src/core/delivery-detector.js';
 import { PhaseMachine } from './src/core/phase-machine.js';
-import { StationFinder } from './src/routing/station-finder.js';
-import { AutoRouter } from './src/routing/auto-router.js';
 import { SseHandler } from './src/transport/sse-handler.js';
 import { startHttpServer } from './src/transport/http-server.js';
 import { readFileSync } from 'fs';
@@ -39,15 +37,23 @@ const readCargo = () => {
 
 new DeliveryDetector(eventBus, constructionManager, readCargo);
 
+eventBus.on('delivery:detected', ({ commodity, amount, constructionId }) => {
+  constructionManager.recordDelivery({
+    construction_id: constructionId,
+    commodity_name: commodity,
+    amount,
+    source: 'ship',
+  });
+  eventBus.emit('cargo:consumed', { commodity, amount });
+});
+
 eventBus.on('cargo:updated', ({ ship, fc }) => saveCargoState(ship, fc));
 
 const sseHandler = new SseHandler(eventBus);
-const finder = new StationFinder({ spanshApiBase: config.spanshApiBase, stationCacheTtlMs: config.stationCacheTtlMs });
-new AutoRouter(eventBus, constructionManager, finder);
-startHttpServer({ manager: constructionManager, machine: phaseMachine, finder, cargoTracker, sseHandler }, config.port);
+startHttpServer({ manager: constructionManager, machine: phaseMachine, cargoTracker, sseHandler }, config.port);
 
 const watcher = new JournalWatcher(config.journalDir, eventBus);
-const initialOffset = lastJournalFile ? lastOffset : 0;
+const initialOffset = lastJournalFile ? lastOffset : null;
 await watcher.start(initialOffset);
 
 const saveAndExit = async () => {

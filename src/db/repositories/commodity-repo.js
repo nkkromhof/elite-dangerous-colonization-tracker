@@ -18,6 +18,10 @@ export function getCommoditySlots(constructionId) {
   return getDb().query('SELECT * FROM commodity_slots WHERE construction_id = ?').all(constructionId);
 }
 
+export function getCommoditySlot(constructionId, name) {
+  return getDb().query('SELECT * FROM commodity_slots WHERE construction_id = ? AND name = ?').get(constructionId, name);
+}
+
 export function incrementDelivered(constructionId, commodityName, amount) {
   const result = getDb().run(
     `UPDATE commodity_slots

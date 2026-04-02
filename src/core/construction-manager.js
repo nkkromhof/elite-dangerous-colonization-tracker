@@ -8,6 +8,7 @@ import {
 import {
   upsertCommoditySlot,
   getCommoditySlots,
+  getCommoditySlot,
   incrementDelivered,
   recordDelivery,
 } from '../db/repositories/commodity-repo.js';
@@ -26,7 +27,7 @@ export class ConstructionManager {
     const id = randomUUID();
     createConstruction({ id, system_name, station_name, station_type, market_id, phase: 'scanning' });
     if (market_id) this._marketIdIndex.set(market_id, id);
-    const construction = getConstruction(id);
+    const construction = { ...getConstruction(id), commodities: getCommoditySlots(id) };
     this._bus.emit('construction:added', construction);
     return id;
   }
@@ -52,6 +53,7 @@ export class ConstructionManager {
   }
 
   getCommoditySlots(constructionId) { return getCommoditySlots(constructionId); }
+  getCommoditySlot(constructionId, name) { return getCommoditySlot(constructionId, name); }
 
   recordDelivery({ construction_id, commodity_name, amount, source }) {
     incrementDelivered(construction_id, commodity_name, amount);
