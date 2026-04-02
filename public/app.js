@@ -350,7 +350,10 @@ function renderConstructionCard() {
     const done = isCommodityComplete(c);
     html += `
       <tr class="commodity-row ${done ? 'row-done' : ''}">
-        <td class="commodity-name">${c.name}</td>
+        <td class="commodity-name">
+          ${c.name}
+          ${c.nearest_station ? `<span class="nearest-station">${c.nearest_station} · ${c.nearest_system}${c.nearest_supply != null ? ` · ${c.nearest_supply.toLocaleString()} supply` : ''}</span>` : ''}
+        </td>
         <td class="col-total">${c.amount_required}</td>
         <td class="${remaining > 0 ? 'col-remaining' : 'col-zero'}">${remaining}</td>
         <td class="${cargo.fc > 0 ? 'col-carrier' : 'col-zero'}">${cargo.fc > 0 ? cargo.fc : '—'}</td>

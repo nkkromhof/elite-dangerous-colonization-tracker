@@ -10,6 +10,7 @@ import { ConstructionManager } from './src/core/construction-manager.js';
 import { DeliveryDetector } from './src/core/delivery-detector.js';
 import { PhaseMachine } from './src/core/phase-machine.js';
 import { ShipTracker } from './src/core/ship-tracker.js';
+import { StationLookupService } from './src/core/station-lookup-service.js';
 import { SseHandler } from './src/transport/sse-handler.js';
 import { startHttpServer } from './src/transport/http-server.js';
 import { readFileSync } from 'fs';
@@ -44,6 +45,7 @@ const readCargo = () => {
 cargoTracker.setShipCargo(readCargo());
 
 new DeliveryDetector(eventBus, constructionManager);
+const stationLookupService = new StationLookupService(eventBus, constructionManager);
 
 eventBus.on('journal:cargo_changed', () => cargoTracker.setShipCargo(readCargo()));
 eventBus.on('journal:event', (e) => {
@@ -64,6 +66,8 @@ eventBus.on('cargo:updated', ({ ship, fc }) => saveCargoState(ship, fc));
 
 const sseHandler = new SseHandler(eventBus);
 startHttpServer({ manager: constructionManager, machine: phaseMachine, cargoTracker, shipTracker, sseHandler }, config.port);
+
+stationLookupService.checkAll();
 
 const watcher = new JournalWatcher(config.journalDir, eventBus);
 const initialOffset = lastJournalFile ? lastOffset : null;

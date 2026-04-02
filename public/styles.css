@@ -496,3 +496,10 @@ html, body {
 .copy-toast.visible {
   opacity: 1;
 }
+
+.nearest-station {
+  display: block;
+  font-size: 0.75em;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}

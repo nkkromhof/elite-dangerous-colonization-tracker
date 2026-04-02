@@ -53,6 +53,19 @@ CREATE TABLE IF NOT EXISTS journal_state (
   updated_at  TEXT NOT NULL
 );`;
 
+function _migrateNearestStation(db) {
+  const cols = db.query('PRAGMA table_info(commodity_slots)').all().map(r => r.name);
+  const needed = [
+    ['nearest_station',    'TEXT'],
+    ['nearest_system',     'TEXT'],
+    ['nearest_supply',     'INTEGER'],
+    ['nearest_queried_at', 'TEXT'],
+  ];
+  for (const [col, type] of needed) {
+    if (!cols.includes(col)) db.run(`ALTER TABLE commodity_slots ADD COLUMN ${col} ${type}`);
+  }
+}
+
 /** @returns {import('bun:sqlite').Database} */
 export function getDb() {
   return _db;
@@ -68,5 +81,6 @@ export function initDb(dbPath = ':memory:') {
   if (_db) _db.close();
   _db = new Database(dbPath, { create: true });
   _db.exec(SCHEMA_SQL);
+  _migrateNearestStation(_db);
   return _db;
 }

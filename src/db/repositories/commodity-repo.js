@@ -42,6 +42,15 @@ export function setDelivered(constructionId, commodityName, amount) {
   );
 }
 
+export function updateNearestStation(constructionId, commodityName, { station, system, supply, queriedAt }) {
+  getDb().run(
+    `UPDATE commodity_slots
+     SET nearest_station = ?, nearest_system = ?, nearest_supply = ?, nearest_queried_at = ?
+     WHERE construction_id = ? AND name = ?`,
+    [station ?? null, system ?? null, supply ?? null, queriedAt, constructionId, commodityName]
+  );
+}
+
 export function recordDelivery({ id, construction_id, commodity_name, amount, source }) {
   getDb().run(
     `INSERT INTO deliveries (id, construction_id, commodity_name, amount, source, delivered_at)
