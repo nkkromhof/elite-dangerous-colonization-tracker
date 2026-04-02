@@ -9,6 +9,7 @@ const EVENT_MAP = {
   'journal:connected':          'journal_connected',
   'journal:error':              'journal_error',
   'app:error':                  'app_error',
+  'ship:updated':               'ship_updated',
 };
 
 export class SseHandler {

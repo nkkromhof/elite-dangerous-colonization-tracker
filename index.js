@@ -9,6 +9,7 @@ import { CargoTracker } from './src/core/cargo-tracker.js';
 import { ConstructionManager } from './src/core/construction-manager.js';
 import { DeliveryDetector } from './src/core/delivery-detector.js';
 import { PhaseMachine } from './src/core/phase-machine.js';
+import { ShipTracker } from './src/core/ship-tracker.js';
 import { SseHandler } from './src/transport/sse-handler.js';
 import { startHttpServer } from './src/transport/http-server.js';
 import { readFileSync } from 'fs';
@@ -24,6 +25,7 @@ const { filePath: lastJournalFile, byteOffset: lastOffset } = loadJournalState()
 const cargoTracker = new CargoTracker(eventBus, { ship: savedShip, fc: savedFc });
 const constructionManager = new ConstructionManager(eventBus);
 const phaseMachine = new PhaseMachine(eventBus);
+const shipTracker = new ShipTracker(eventBus);
 
 const readCargo = () => {
   try {
@@ -50,7 +52,7 @@ eventBus.on('delivery:detected', ({ commodity, amount, constructionId }) => {
 eventBus.on('cargo:updated', ({ ship, fc }) => saveCargoState(ship, fc));
 
 const sseHandler = new SseHandler(eventBus);
-startHttpServer({ manager: constructionManager, machine: phaseMachine, cargoTracker, sseHandler }, config.port);
+startHttpServer({ manager: constructionManager, machine: phaseMachine, cargoTracker, shipTracker, sseHandler }, config.port);
 
 const watcher = new JournalWatcher(config.journalDir, eventBus);
 const initialOffset = lastJournalFile ? lastOffset : null;

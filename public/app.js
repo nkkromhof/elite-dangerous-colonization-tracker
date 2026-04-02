@@ -1,6 +1,7 @@
 const state = {
   constructions: [],
   cargo: { ship: [], fc: [] },
+  ship: null,
   activeConstructionId: null,
   pendingDeleteId: null,
   sessionErrors: [],
@@ -53,6 +54,7 @@ async function fetchState() {
     const data = await res.json();
     state.constructions = data.constructions || [];
     state.cargo = data.cargo || { ship: [], fc: [] };
+    state.ship = data.ship || null;
     if (state.constructions.length > 0 && !state.activeConstructionId) {
       state.activeConstructionId = state.constructions[0].id;
     }
@@ -110,6 +112,10 @@ function connectSSE() {
     }
     state.activeConstructionId = state.constructions[newIdx].id;
     render();
+  });
+  es.addEventListener('ship_updated', (e) => {
+    state.ship = JSON.parse(e.data);
+    renderShipBar();
   });
   es.addEventListener('app_error', (e) => {
     const error = JSON.parse(e.data);
@@ -193,6 +199,36 @@ function render() {
   renderTabs();
   renderConstructionCard();
   renderStatusWidget();
+  renderShipBar();
+}
+
+function renderShipBar() {
+  const ship = state.ship;
+
+  const nameEl = document.getElementById('ship-name');
+  const hullEl = document.getElementById('ship-hull');
+  const jumpEl = document.getElementById('ship-jump');
+  const cargoEl = document.getElementById('ship-cargo');
+
+  nameEl.textContent = ship?.name ?? '—';
+
+  if (ship?.hullHealth != null) {
+    const pct = Math.round(ship.hullHealth * 100);
+    hullEl.textContent = pct + '%';
+    hullEl.className = 'ship-bar-value' +
+      (pct < 50 ? ' hull-danger' : pct < 75 ? ' hull-warning' : '');
+  } else {
+    hullEl.textContent = '—';
+    hullEl.className = 'ship-bar-value';
+  }
+
+  jumpEl.textContent = ship?.maxJumpRange != null
+    ? ship.maxJumpRange.toFixed(2) + ' ly'
+    : '—';
+
+  cargoEl.textContent = ship?.cargoCapacity != null
+    ? ship.cargoCapacity.toLocaleString() + ' t'
+    : '—';
 }
 
 function renderStatusWidget() {

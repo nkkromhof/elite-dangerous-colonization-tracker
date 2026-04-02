@@ -187,6 +187,52 @@ html, body {
   text-align: center;
 }
 
+/* SHIP BAR */
+.ship-bar {
+  background: #141414;
+  border-bottom: 1px solid var(--color-border);
+  padding: 0.5rem 2rem;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-shrink: 0;
+}
+
+.ship-bar-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 1.25rem;
+}
+
+.ship-bar-item:first-child {
+  padding-left: 0;
+}
+
+.ship-bar-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+}
+
+.ship-bar-value {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.ship-bar-value.hull-warning { color: var(--color-warning); }
+.ship-bar-value.hull-danger  { color: var(--color-danger); }
+
+.ship-bar-sep {
+  width: 1px;
+  height: 1.25rem;
+  background: var(--color-border);
+  flex-shrink: 0;
+}
+
 /* TABS */
 .tabs-container {
   background: var(--color-surface);
