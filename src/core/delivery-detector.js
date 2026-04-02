@@ -15,7 +15,7 @@ export class DeliveryDetector {
     this._bus = eventBus;
     this._manager = constructionManager;
     this._readCargo = readCargo;
-    this._pendingSnapshot = null; // { cargo, constructionId, stationName }
+    this._pendingSnapshot = null; // { constructionId, stationName }
     this._snapshotCargo = null; // copy of cargo at dock for undock detection
     this._ejectedWhileDocked = {}; // commodityName → count
 
@@ -47,7 +47,6 @@ export class DeliveryDetector {
         log(`Auto-registered construction: id=${constructionId}`);
         const cargo = this._readCargo();
         this._pendingSnapshot = {
-          cargo,
           constructionId,
           stationName: e.StationName,
         };
@@ -68,31 +67,6 @@ export class DeliveryDetector {
         if (!this._pendingSnapshot) return;
         const name = e.Type_Localised ?? e.Type;
         this._ejectedWhileDocked[name] = (this._ejectedWhileDocked[name] ?? 0) + e.Count;
-        break;
-      }
-      case 'MarketSell': {
-        if (!this._pendingSnapshot) return;
-        const name = e.Type_Localised ?? e.Type;
-        const count = e.Count;
-        const prevCount = this._pendingSnapshot.cargo.find(c => c.name === name)?.count ?? 0;
-        const ejected = this._ejectedWhileDocked[name] ?? 0;
-        const delivered = Math.max(0, prevCount - count - ejected);
-        if (delivered > 0) {
-          log(`Detected delivery: ${name} x${delivered}`);
-          this._bus.emit('delivery:detected', {
-            commodity: name,
-            amount: delivered,
-            constructionId: this._pendingSnapshot.constructionId,
-          });
-        }
-        this._pendingSnapshot.cargo = this._pendingSnapshot.cargo.map(c =>
-          c.name === name ? { ...c, count } : c
-        );
-        if (this._snapshotCargo) {
-          this._snapshotCargo = this._snapshotCargo.map(c =>
-            c.name === name ? { ...c, count } : c
-          );
-        }
         break;
       }
       case 'ColonisationConstructionDepot': {

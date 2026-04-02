@@ -37,11 +37,12 @@ export class JournalWatcher {
     }
   }
 
-  /** Read from byte offset, emit each parsed JSON line, return new offset */
-  async _readFrom(filePath, offset = 0) {
+  /** Read from byte offset, emit each parsed JSON line, return new offset.
+   *  awaitStartup: if true, skip events until a StartUp event is seen (new game session). */
+  async _readFrom(filePath, offset = 0, awaitStartup = false) {
     return new Promise((resolve) => {
       let newOffset = offset;
-      let seenStartup = offset === 0 ? false : true; // If reading from offset 0, wait for StartUp
+      let seenStartup = !awaitStartup;
       const stream = createReadStream(filePath, { start: offset, encoding: 'utf8' });
       const rl = createInterface({ input: stream, crlfDelay: Infinity });
       const lines = [];
@@ -78,8 +79,8 @@ export class JournalWatcher {
     const latestJournal = this._findLatestJournal();
     if (latestJournal) {
       this._currentFile = latestJournal;
-      // If no saved offset (first run), start from end of file (only watch new events)
-      if (initialOffset === null || initialOffset === 0) {
+      // If no saved offset (first run, null), start from end of file (only watch new events)
+      if (initialOffset === null) {
         const stats = statSync(latestJournal);
         initialOffset = stats.size;
         console.log(`[JournalWatcher] First run - starting from end of journal at offset ${initialOffset}`);
@@ -88,7 +89,7 @@ export class JournalWatcher {
     }
 
     this._watcher = chokidarWatch(
-      [join(this.journalDir, 'Journal.*.log'), join(this.journalDir, 'Cargo.json'), join(this.journalDir, 'Market.json')],
+      this.journalDir,
       { ignoreInitial: true, usePolling: false, awaitWriteFinish: { stabilityThreshold: 100, pollInterval: 50 } }
     );
 
@@ -101,6 +102,7 @@ export class JournalWatcher {
         this.bus.emit('journal:market_changed', { path: filePath });
         return;
       }
+      if (!filePath.match(/Journal\.\d{4}-\d{2}-\d{2}T\d{6}\.\d+\.log$/)) return;
       if (filePath !== this._currentFile) {
         this._currentFile = filePath;
         this._byteOffset = 0;
@@ -119,7 +121,7 @@ export class JournalWatcher {
       }
       if (!filePath.match(/Journal\.\d{4}-\d{2}-\d{2}T\d{6}\.\d+\.log$/)) return;
       this._currentFile = filePath;
-      this._byteOffset = await this._readFrom(filePath, 0);
+      this._byteOffset = await this._readFrom(filePath, 0, true);
     });
 
     this.bus.emit('journal:connected', { path: this._currentFile });
