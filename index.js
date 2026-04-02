@@ -46,6 +46,9 @@ cargoTracker.setShipCargo(readCargo());
 new DeliveryDetector(eventBus, constructionManager);
 
 eventBus.on('journal:cargo_changed', () => cargoTracker.setShipCargo(readCargo()));
+eventBus.on('journal:event', (e) => {
+  if (e.event === 'EjectCargo') cargoTracker.setShipCargo(readCargo());
+});
 
 eventBus.on('delivery:detected', ({ commodity, amount, constructionId }) => {
   constructionManager.recordDelivery({
