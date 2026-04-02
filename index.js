@@ -37,7 +37,7 @@ const readCargo = () => {
   }
 };
 
-new DeliveryDetector(eventBus, constructionManager, readCargo);
+new DeliveryDetector(eventBus, constructionManager);
 
 eventBus.on('journal:cargo_changed', () => cargoTracker.setShipCargo(readCargo()));
 

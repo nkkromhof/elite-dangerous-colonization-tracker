@@ -33,6 +33,15 @@ export function incrementDelivered(constructionId, commodityName, amount) {
   return true;
 }
 
+export function setDelivered(constructionId, commodityName, amount) {
+  getDb().run(
+    `UPDATE commodity_slots
+     SET amount_delivered = ?, updated_at = ?
+     WHERE construction_id = ? AND name = ?`,
+    [amount, now(), constructionId, commodityName]
+  );
+}
+
 export function recordDelivery({ id, construction_id, commodity_name, amount, source }) {
   getDb().run(
     `INSERT INTO deliveries (id, construction_id, commodity_name, amount, source, delivered_at)

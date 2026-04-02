@@ -10,6 +10,7 @@ import {
   getCommoditySlots,
   getCommoditySlot,
   incrementDelivered,
+  setDelivered,
   recordDelivery,
 } from '../db/repositories/commodity-repo.js';
 
@@ -48,6 +49,13 @@ export class ConstructionManager {
 
   upsertCommodity(constructionId, { name, name_internal, amount_required }) {
     upsertCommoditySlot({ id: randomUUID(), construction_id: constructionId, name, name_internal, amount_required });
+    const slots = getCommoditySlots(constructionId);
+    this._bus.emit('commodity:updated', { constructionId, slot: slots.find(s => s.name === name) });
+  }
+
+  syncFromDepot(constructionId, { name, name_internal, amount_required, amount_provided }) {
+    upsertCommoditySlot({ id: randomUUID(), construction_id: constructionId, name, name_internal, amount_required });
+    setDelivered(constructionId, name, amount_provided);
     const slots = getCommoditySlots(constructionId);
     this._bus.emit('commodity:updated', { constructionId, slot: slots.find(s => s.name === name) });
   }
