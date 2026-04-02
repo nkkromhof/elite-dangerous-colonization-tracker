@@ -337,7 +337,12 @@ function renderConstructionCard() {
         </tr>
   `;
 
-  construction.commodities.sort((a, b) => b.amount_required - a.amount_required);
+  construction.commodities.sort((a, b) => {
+    const aDone = a.amount_delivered >= a.amount_required;
+    const bDone = b.amount_delivered >= b.amount_required;
+    if (aDone !== bDone) return aDone ? 1 : -1;
+    return b.amount_required - a.amount_required;
+  });
 
   construction.commodities.forEach(c => {
     const cargo = getCargoForCommodity(c.name);
