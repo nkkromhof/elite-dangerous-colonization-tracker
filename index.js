@@ -31,7 +31,10 @@ const readCargo = () => {
   try {
     const raw = readFileSync(join(config.journalDir, 'Cargo.json'), 'utf8');
     const data = JSON.parse(raw);
-    return (data.Inventory ?? []).map(i => ({ name: i.Name_Localised ?? i.Name, count: i.Count }));
+    return (data.Inventory ?? []).map(i => ({
+      name: i.Name_Localised ?? (i.Name.charAt(0).toUpperCase() + i.Name.slice(1)),
+      count: i.Count,
+    }));
   } catch {
     return cargoTracker.getShipCargo();
   }
