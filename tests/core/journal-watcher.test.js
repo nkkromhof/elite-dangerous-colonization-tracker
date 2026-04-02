@@ -27,7 +27,7 @@ describe('JournalWatcher', () => {
     const watcher = new JournalWatcher(TMP, bus);
     const events = [];
     bus.on('journal:event', e => events.push(e));
-    await watcher.start();
+    await watcher.start(0);
     await watcher.stop();
     expect(events.map(e => e.event)).toContain('FileHeader');
     expect(events.map(e => e.event)).toContain('LoadGame');
