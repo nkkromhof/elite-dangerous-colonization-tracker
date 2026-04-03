@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s -A \"ED-Colonisation-Tracker/1.0\" \"https://inara.cz/elite/commodities/?formbrief=1&pi1=1&pi3=3&pi5=50&pi13=1&ps1=Sol&pa1%5B%5D=19&pa1%5B%5D=21\")"
+    ]
+  }
+}

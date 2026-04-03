@@ -285,10 +285,6 @@ html, body {
 }
 
 .construction-card {
-  background: var(--color-surface);
-  border: 2px solid var(--color-border);
-  border-radius: 0.75rem;
-  padding: 1.5rem;
 }
 
 .construction-card.completed { opacity: 0.5; }
@@ -398,12 +394,20 @@ html, body {
 
 /* COMMODITY ROW */
 .commodity-row td {
-  padding: 0.625rem 0.75rem 0.625rem 4.5rem;
   font-size: 1.25rem;
 }
 
 .commodity-row .commodity-name {
   font-weight: 600;
+  padding-left: 1.5rem;
+}
+
+.nearest-station.copyable {
+  cursor: pointer;
+}
+
+.nearest-station.copyable:hover {
+  color: var(--color-text);
 }
 
 .commodity-row .sourcing-info {

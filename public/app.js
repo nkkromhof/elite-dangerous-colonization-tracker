@@ -311,12 +311,6 @@ function renderConstructionCard() {
   };
 
   let html = `
-    <div class="card-header">
-      <div>
-        <div class="card-title">${construction.station_name}</div>
-        <div class="card-subtitle">System: <span class="system-name" data-copy="${construction.system_name}">${construction.system_name}</span> | ${construction.station_type || 'Unknown'}</div>
-      </div>
-    </div>
     <table class="commodity-table">
       <thead>
         <tr>
@@ -352,7 +346,7 @@ function renderConstructionCard() {
       <tr class="commodity-row ${done ? 'row-done' : ''}">
         <td class="commodity-name">
           ${c.name}
-          ${c.nearest_station ? `<span class="nearest-station">${c.nearest_station} · ${c.nearest_system}${c.nearest_supply != null ? ` · ${c.nearest_supply.toLocaleString()} supply` : ''}</span>` : ''}
+          ${c.nearest_station ? `<span class="nearest-station copyable" data-copy="${c.nearest_system}">${c.nearest_station} · ${c.nearest_system}${c.nearest_supply != null ? ` · ${c.nearest_supply.toLocaleString()} supply` : ''}</span>` : ''}
         </td>
         <td class="col-total">${c.amount_required}</td>
         <td class="${remaining > 0 ? 'col-remaining' : 'col-zero'}">${remaining}</td>
@@ -365,7 +359,7 @@ function renderConstructionCard() {
   html += '</tbody></table>';
   elements.constructionCard.innerHTML = html;
 
-  elements.constructionCard.querySelectorAll('.system-name').forEach(el => {
+  elements.constructionCard.querySelectorAll('.nearest-station.copyable').forEach(el => {
     el.addEventListener('click', () => copyToClipboard(el.dataset.copy));
   });
 }
