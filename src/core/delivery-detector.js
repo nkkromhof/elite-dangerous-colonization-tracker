@@ -1,3 +1,5 @@
+import { commodityName } from './commodity-name.js';
+
 export class DeliveryDetector {
   /**
    * @param {import('events').EventEmitter} eventBus
@@ -28,7 +30,7 @@ export class DeliveryDetector {
         if (!construction) return;
         for (const c of e.Contributions ?? []) {
           this._bus.emit('delivery:detected', {
-            commodity: c.Name_Localised ?? c.Name,
+            commodity: commodityName(c.Name_Localised, c.Name),
             amount: c.Amount,
             constructionId: construction.id,
           });
@@ -41,7 +43,7 @@ export class DeliveryDetector {
         if (!construction) return;
         for (const res of e.ResourcesRequired ?? []) {
           this._manager.syncFromDepot(construction.id, {
-            name: res.Name_Localised ?? res.Name,
+            name: commodityName(res.Name_Localised, res.Name),
             name_internal: res.Name,
             amount_required: res.RequiredAmount,
             amount_provided: res.ProvidedAmount,

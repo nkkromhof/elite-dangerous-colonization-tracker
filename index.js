@@ -16,6 +16,7 @@ import { SseHandler } from './src/transport/sse-handler.js';
 import { startHttpServer } from './src/transport/http-server.js';
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import { commodityName } from './src/core/commodity-name.js';
 
 mkdirSync(dirname(config.dbPath), { recursive: true });
 
@@ -34,7 +35,7 @@ const readCargo = () => {
     const raw = readFileSync(join(config.journalDir, 'Cargo.json'), 'utf8');
     const data = JSON.parse(raw);
     return (data.Inventory ?? []).map(i => ({
-      name: i.Name_Localised ?? (i.Name.charAt(0).toUpperCase() + i.Name.slice(1)),
+      name: commodityName(i.Name_Localised, i.Name),
       count: i.Count,
     }));
   } catch {
@@ -42,8 +43,30 @@ const readCargo = () => {
   }
 };
 
+const readFcCargo = () => {
+  try {
+    const raw = readFileSync(join(config.journalDir, 'Market.json'), 'utf8');
+    const data = JSON.parse(raw);
+    if (data.StationType !== 'FleetCarrier') return null;
+    const items = (data.Items ?? [])
+      .filter(i => i.Stock > 0)
+      .map(i => ({ name: commodityName(i.Name_Localised, i.Name), count: i.Stock }));
+    return { marketId: data.MarketID, items };
+  } catch {
+    return null;
+  }
+};
+
 // Sync ship cargo from Cargo.json immediately on startup
 cargoTracker.setShipCargo(readCargo());
+
+// Sync FC cargo from Market.json immediately on startup (if last market visit was a fleet carrier)
+const fcSnapshot = readFcCargo();
+if (fcSnapshot) {
+  cargoTracker.setFcCargoFromMarket(fcSnapshot.marketId, fcSnapshot.items);
+  console.log(`FC cargo loaded (marketId=${fcSnapshot.marketId}):`);
+  for (const { name, count } of fcSnapshot.items) console.log(`  ${name}: ${count}`);
+}
 
 new DeliveryDetector(eventBus, constructionManager);
 new MarketTracker(eventBus, config.journalDir);
@@ -52,6 +75,11 @@ const stationLookupService = new StationLookupService(eventBus, constructionMana
 eventBus.on('journal:cargo_changed', () => cargoTracker.setShipCargo(readCargo()));
 eventBus.on('journal:event', (e) => {
   if (e.event === 'EjectCargo') cargoTracker.setShipCargo(readCargo());
+});
+
+eventBus.on('journal:market_changed', () => {
+  const fc = readFcCargo();
+  if (fc) cargoTracker.setFcCargoFromMarket(fc.marketId, fc.items);
 });
 
 eventBus.on('delivery:detected', ({ commodity, amount, constructionId }) => {
@@ -73,7 +101,9 @@ stationLookupService.checkAll();
 
 const watcher = new JournalWatcher(config.journalDir, eventBus);
 const initialOffset = lastJournalFile ? lastOffset : null;
+cargoTracker.setSkipFcJournalUpdates(true);
 await watcher.start(initialOffset);
+cargoTracker.setSkipFcJournalUpdates(false);
 
 const saveAndExit = async () => {
   saveJournalState(watcher.getCurrentFile(), watcher.getByteOffset());

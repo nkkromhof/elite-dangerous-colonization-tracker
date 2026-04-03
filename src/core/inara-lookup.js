@@ -1,10 +1,59 @@
 import { INARA_COMMODITY_IDS } from '../../public/inara-commodity-ids.js';
+import { config } from '../config.js';
 import { logger } from './logger.js';
 
 const TAG = 'InaraLookup';
 
 const SEARCH_RANGE_LY = 500;
-const USER_AGENT = 'ED-Colonisation-Tracker/1.0 (https://github.com/nicholasrobinson/elite-dangerous-colonization-tracker)';
+
+const BASE_HEADERS = {
+  'User-Agent':                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36',
+  'Accept':                    'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+  'Accept-Language':           'en-US,en;q=0.9',
+  'Accept-Encoding':           'gzip, deflate, br',
+  'Cache-Control':             'max-age=0',
+  'Referer':                   'https://inara.cz/elite/commodities/',
+  'Upgrade-Insecure-Requests': '1',
+  'DNT':                       '1',
+};
+
+// In-memory cookie jar — persists across all requests for the lifetime of the process.
+// Pre-seed with the user's Inara login cookie if configured.
+if (config.inaraUserCookie) {
+  logger.info(TAG, `INARA_USER_COOKIE loaded (length=${config.inaraUserCookie.length}, value=${config.inaraUserCookie})`);
+} else {
+  logger.warn(TAG, `INARA_USER_COOKIE not set — anonymous requests may be rate-limited`);
+}
+// inarasite=1 signals to Inara that this client has already passed the JS challenge.
+// Without it, every request receives the challenge page (HTTP 503) instead of results.
+let _cookieJar = config.inaraUserCookie
+  ? `inarasite=1; __Host-InaraUser=${config.inaraUserCookie}`
+  : 'inarasite=1';
+
+function _updateCookies(resp) {
+  // getSetCookie() returns each Set-Cookie header as a separate string, correctly
+  // handling cookies whose values or attributes contain commas (e.g. expires dates).
+  const cookies = typeof resp.headers.getSetCookie === 'function'
+    ? resp.headers.getSetCookie()
+    : (resp.headers.get('set-cookie') ?? '').split(/,(?=[^ ])/).map(s => s.trim()).filter(Boolean);
+
+  for (const cookieStr of cookies) {
+    const nameValue = cookieStr.split(';')[0].trim();
+    if (!nameValue.includes('=')) continue;
+    const [name] = nameValue.split('=');
+    // Replace existing value for this cookie name, or append
+    const existing = _cookieJar
+      .split('; ')
+      .filter(c => c && !c.startsWith(name + '='))
+      .join('; ');
+    _cookieJar = existing ? `${existing}; ${nameValue}` : nameValue;
+  }
+  if (cookies.length > 0) logger.debug(TAG, `Cookie jar: ${_cookieJar}`);
+}
+
+function _headers() {
+  return _cookieJar ? { ...BASE_HEADERS, 'Cookie': _cookieJar } : BASE_HEADERS;
+}
 
 function inaraId(nameInternal) {
   if (!nameInternal) return null;
@@ -13,13 +62,24 @@ function inaraId(nameInternal) {
 }
 
 function buildUrl(ids, systemName) {
+  // Parameter list mirrors the full form submission a browser sends, including all
+  // default/zero-value fields.  Inara appears to validate the presence of these.
   const params = new URLSearchParams({
     formbrief: '1',
-    pi1: '1',   // selling (not buying)
-    pi3: '3',   // sort by distance
-    pi5: String(SEARCH_RANGE_LY),
-    pi13: '1',  // include fleet carriers
-    ps1: systemName,
+    pi1:  '1',   // sell listings (not buy orders)
+    pi3:  '3',   // sort by distance
+    pi4:  '0',
+    pi5:  String(SEARCH_RANGE_LY),
+    pi7:  '0',
+    pi8:  '0',
+    pi9:  '0',
+    pi10: '3',
+    pi11: '0',
+    pi12: '0',
+    pi13: '1',   // include fleet carriers
+    pi14: '0',
+    ps1:  systemName,
+    ps3:  '',
   });
   for (const id of ids) {
     params.append('pa1[]', id);
@@ -85,6 +145,47 @@ function isTransientStatus(status) {
 }
 
 /**
+ * Inara serves a JS challenge page (HTTP 503) to unknown clients.
+ * The page embeds a one-time token; clicking "Confirm" POSTs it to
+ * /validatechallenge.php, which sets a validated-session cookie and returns 200.
+ * We replicate that POST here so we can proceed without a real browser.
+ *
+ * @param {string} html  The 503 challenge page body
+ * @returns {Promise<boolean>} true if validation succeeded
+ */
+async function _solveChallenge(html) {
+  const tokenMatch = html.match(/encodeURIComponent\('([a-f0-9]{32})'\)/);
+  if (!tokenMatch) {
+    logger.warn(TAG, 'Challenge: could not extract token from page');
+    return false;
+  }
+  const token = tokenMatch[1];
+  const ts    = Date.now();
+  const cf    = Math.floor(Math.random() * 10000);
+  const body  = `challenge=${encodeURIComponent(token)}&ts=${ts}&cf=${cf}`;
+
+  logger.info(TAG, `Challenge: solving token=${token} ts=${ts} cf=${cf}`);
+  try {
+    const resp = await fetch('https://inara.cz/validatechallenge.php', {
+      method: 'POST',
+      headers: {
+        ..._headers(),
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        'Origin':       'https://inara.cz',
+      },
+      body,
+      signal: AbortSignal.timeout(10_000),
+    });
+    _updateCookies(resp);
+    logger.info(TAG, `Challenge: status=${resp.status} cookie=${_cookieJar}`);
+    return resp.ok;
+  } catch (err) {
+    logger.warn(TAG, `Challenge: request failed: ${err?.message ?? err}`);
+    return false;
+  }
+}
+
+/**
  * Fetch the nearest station from Inara selling the given commodity.
  * @param {string} nameInternal  e.g. "$FoodCartridges_Name;"
  * @param {string} systemName    reference system for distance sorting
@@ -100,15 +201,41 @@ export async function lookupNearestStation(nameInternal, systemName) {
   }
 
   const url = buildUrl([id], systemName);
-  logger.debug(TAG, `GET ${url}`);
+  logger.info(TAG, `REQUEST url=${url}`);
+  logger.info(TAG, `REQUEST cookie=${_cookieJar || '(none)'}`);
   try {
-    const resp = await fetch(url, {
-      headers: { 'User-Agent': USER_AGENT },
+    let resp = await fetch(url, {
+      headers: _headers(),
       signal: AbortSignal.timeout(15_000),
     });
+    _updateCookies(resp);
+    logger.info(TAG, `RESPONSE status=${resp.status}`);
+
+    // Inara serves a JS challenge page (HTTP 503) to unrecognised clients.
+    // Solve it by POSTing the embedded token, then retry once.
+    if (resp.status === 503) {
+      const body503 = await resp.text();
+      if (body503.includes('challenge-container')) {
+        const solved = await _solveChallenge(body503);
+        if (solved) {
+          logger.info(TAG, 'Challenge solved — retrying request');
+          resp = await fetch(url, { headers: _headers(), signal: AbortSignal.timeout(15_000) });
+          _updateCookies(resp);
+          logger.info(TAG, `Post-challenge RESPONSE status=${resp.status}`);
+        } else {
+          logger.warn(TAG, 'Challenge failed — will retry later');
+          return { data: null, transient: true };
+        }
+      } else {
+        logger.warn(TAG, `503 (non-challenge): ${body503.slice(0, 500)}`);
+        return { data: null, transient: true };
+      }
+    }
+
     if (!resp.ok) {
+      const body = await resp.text();
+      logger.warn(TAG, `RESPONSE body:\n${body}`);
       const transient = isTransientStatus(resp.status);
-      logger.warn(TAG, `HTTP ${resp.status} for ${nameInternal} (${systemName})${transient ? ' — will retry' : ''}`);
       return { data: null, transient };
     }
     const html = await resp.text();
@@ -123,88 +250,5 @@ export async function lookupNearestStation(nameInternal, systemName) {
   } catch (err) {
     logger.warn(TAG, `Fetch failed for ${nameInternal}: ${err?.message ?? err}`);
     return { data: null, transient: true };
-  }
-}
-
-/**
- * Fetch the nearest station selling ALL commodities in a group.
- *
- * Inara sorts results by coverage-count DESC then distance ASC, so the first
- * result is the nearest station that sells the most of the queried commodities.
- *
- * Returns a map of nameInternal → station result for every commodity that was
- * resolved, plus an array of nameInternal values that need individual follow-up
- * queries because no single station covered them all.
- *
- * @param {string[]} nameInternalList
- * @param {string}   systemName
- * @returns {Promise<{ found: Record<string,{station,system,distanceLy,supply}>, unresolved: string[], transient: boolean }>}
- *   transient=true means a retriable error affected this group; affected items should not get queriedAt stamped.
- */
-export async function lookupNearestStationsForGroup(nameInternalList, systemName) {
-  const entries = nameInternalList
-    .map(nameInternal => ({ nameInternal, id: inaraId(nameInternal) }))
-    .filter(e => e.id !== null);
-
-  const noId = nameInternalList.filter(n => !entries.some(e => e.nameInternal === n));
-  if (noId.length > 0) {
-    logger.warn(TAG, `No Inara ID for: ${noId.join(', ')}`);
-  }
-
-  if (entries.length === 0) {
-    return { found: {}, unresolved: nameInternalList, transient: false };
-  }
-
-  const url = buildUrl(entries.map(e => e.id), systemName);
-  logger.debug(TAG, `GET (group, ${entries.length} commodities) ${url}`);
-  try {
-    const resp = await fetch(url, {
-      headers: { 'User-Agent': USER_AGENT },
-      signal: AbortSignal.timeout(15_000),
-    });
-    if (!resp.ok) {
-      const transient = isTransientStatus(resp.status);
-      logger.warn(TAG, `HTTP ${resp.status} for group [${nameInternalList.join(', ')}] near ${systemName}${transient ? ' — will retry' : ''}`);
-      return { found: {}, unresolved: nameInternalList, transient };
-    }
-
-    const html = await resp.text();
-    const rows = parseAllRows(html);
-
-    if (rows.length === 0) {
-      logger.info(TAG, `No results for group [${nameInternalList.join(', ')}] near ${systemName}`);
-      return { found: {}, unresolved: nameInternalList, transient: false };
-    }
-
-    // The first row has the highest coverage (Inara sorts coverage DESC first).
-    const best = rows[0];
-    logger.debug(TAG, `Group best: ${best.station} / ${best.system}, coverage ${best.coverageCount}/${entries.length}`);
-
-    if (best.coverageCount >= entries.length) {
-      // Station sells ALL queried commodities. Assign it to all of them.
-      // Supply is only known for the "primary" commodity (lowest Inara ID, always
-      // shown first by Inara). Set supply=null for the rest to avoid showing a
-      // misleading value from a different commodity.
-      const primaryId = Math.min(...entries.map(e => e.id));
-      const found = {};
-      for (const entry of entries) {
-        found[entry.nameInternal] = {
-          station:    best.station,
-          system:     best.system,
-          distanceLy: best.distanceLy,
-          supply:     entry.id === primaryId ? best.supply : null,
-        };
-      }
-      logger.info(TAG, `Group fully resolved → ${best.station} / ${best.system} for ${entries.length} commodities`);
-      return { found, unresolved: noId, transient: false };
-    }
-
-    // Station doesn't cover all commodities. We can't determine which specific
-    // ones are missing from the HTML alone, so fall back to individual queries.
-    logger.info(TAG, `Group partial coverage (${best.coverageCount}/${entries.length}) — falling back to individual queries`);
-    return { found: {}, unresolved: nameInternalList, transient: false };
-  } catch (err) {
-    logger.warn(TAG, `Fetch failed for group [${nameInternalList.join(', ')}]: ${err?.message ?? err}`);
-    return { found: {}, unresolved: nameInternalList, transient: true };
   }
 }

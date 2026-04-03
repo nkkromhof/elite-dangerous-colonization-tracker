@@ -1,3 +1,8 @@
+import { logger } from './logger.js';
+import { commodityName, normalizeSavedName } from './commodity-name.js';
+
+const TAG = 'CargoTracker';
+
 export class CargoTracker {
   /**
    * @param {import('events').EventEmitter} eventBus
@@ -5,9 +10,10 @@ export class CargoTracker {
    */
   constructor(eventBus, initial = { ship: [], fc: [] }) {
     this._bus = eventBus;
-    this._ship = [...(initial.ship ?? [])];
-    this._fc   = [...(initial.fc   ?? [])];
+    this._ship = (initial.ship ?? []).map(i => ({ ...i, name: normalizeSavedName(i.name) }));
+    this._fc   = (initial.fc   ?? []).map(i => ({ ...i, name: normalizeSavedName(i.name) }));
     this._fcMarketId = null;
+    this._skipFcJournalUpdates = false;
 
     eventBus.on('journal:event', (e) => this._handle(e));
     eventBus.on('cargo:consumed', (e) => this._handleConsumed(e));
@@ -18,9 +24,28 @@ export class CargoTracker {
     this._bus.emit('cargo:updated', { ship: this.getShipCargo(), fc: this.getFcCargo() });
   }
 
+  setFcCargoFromMarket(marketId, items) {
+    if (this._fcMarketId !== null && marketId !== this._fcMarketId) return;
+    this._fcMarketId = marketId;
+    for (const item of items) {
+      const existing = this._fc.find(i => i.name === item.name);
+      if (existing) {
+        existing.count = item.count;
+      } else {
+        this._fc.push({ name: item.name, count: item.count });
+      }
+    }
+    logger.info(TAG, `FC cargo synced from market: ${items.length} items merged`);
+    this._bus.emit('cargo:updated', { ship: this.getShipCargo(), fc: this.getFcCargo() });
+  }
+
   _handleConsumed(e) {
     this._adjust(this._ship, e.commodity, -e.amount);
     this._bus.emit('cargo:updated', { ship: this.getShipCargo(), fc: this.getFcCargo() });
+  }
+
+  setSkipFcJournalUpdates(skip) {
+    this._skipFcJournalUpdates = skip;
   }
 
   _handle(e) {
@@ -28,11 +53,39 @@ export class CargoTracker {
       case 'Docked':
         if (e.StationType === 'FleetCarrier') this._fcMarketId = e.MarketID;
         return;
+      case 'MarketSell':
+        if (this._skipFcJournalUpdates) return;
+        if (e.MarketID && e.MarketID === this._fcMarketId) {
+          const name = commodityName(e.Type_Localised, e.Type);
+          this._adjust(this._fc, name, e.Count);
+          logger.info(TAG, `FC +${e.Count} ${name} (market sell)`);
+        } else {
+          return;
+        }
+        break;
+      case 'MarketBuy':
+        if (this._skipFcJournalUpdates) return;
+        if (e.MarketID && e.MarketID === this._fcMarketId) {
+          const name = commodityName(e.Type_Localised, e.Type);
+          this._adjust(this._fc, name, -e.Count);
+          logger.info(TAG, `FC -${e.Count} ${name} (market buy)`);
+        } else {
+          return;
+        }
+        break;
       case 'CargoTransfer':
+        if (this._skipFcJournalUpdates) return;
         for (const t of e.Transfers ?? []) {
-          const name = t.Type_Localised ?? t.Type;
-          if (t.Direction === 'tocarrier') this._adjust(this._fc, name,  t.Count);
-          else if (t.Direction === 'toship') this._adjust(this._fc, name, -t.Count);
+          const name = commodityName(t.Type_Localised, t.Type);
+          if (t.Direction === 'tocarrier') {
+            this._adjust(this._fc, name, t.Count);
+            logger.info(TAG, `FC +${t.Count} ${name}`);
+          } else if (t.Direction === 'toship') {
+            this._adjust(this._fc, name, -t.Count);
+            logger.info(TAG, `FC -${t.Count} ${name}`);
+          } else {
+            logger.warn(TAG, `Unexpected CargoTransfer direction: "${t.Direction}" for ${name}`);
+          }
         }
         break;
       default:

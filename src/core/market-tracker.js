@@ -1,6 +1,7 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { upsertStationMarket, getSystemCoordinates, upsertSystemCoordinates } from '../db/repositories/market-cache-repo.js';
+import { commodityName } from './commodity-name.js';
 import { logger } from './logger.js';
 
 const TAG = 'MarketTracker';
@@ -58,7 +59,7 @@ export class MarketTracker {
     // Only keep items with actual stock available to buy
     const inventory = Items
       .filter(i => i.Stock > 0 && i.BuyPrice > 0)
-      .map(i => ({ nameInternal: i.Name, name: i.Name_Localised, stock: i.Stock }));
+      .map(i => ({ nameInternal: i.Name, name: commodityName(i.Name_Localised, i.Name), stock: i.Stock }));
 
     upsertStationMarket({
       marketId: MarketID,

@@ -191,7 +191,7 @@ function copyToClipboard(text) {
 
 function getActiveConstructions() {
   return state.constructions.filter(c =>
-    c.phase !== 'done' && c.commodities.some(cm => !isCommodityComplete(cm))
+    c.phase !== 'done' && (c.commodities.length === 0 || c.commodities.some(cm => !isCommodityComplete(cm)))
   );
 }
 
@@ -291,7 +291,7 @@ function renderTabs() {
 
   const constructionTabsHtml = state.constructions.map(c => {
     const isActive = c.id === state.activeConstructionId;
-    const isComplete = c.phase === 'done' || c.commodities.every(isCommodityComplete);
+    const isComplete = c.phase === 'done' || (c.commodities.length > 0 && c.commodities.every(isCommodityComplete));
     return `
       <div class="tab ${isActive ? 'active' : ''} ${isComplete ? 'completed' : ''}" data-id="${c.id}">
         <span>${c.station_name}</span>
@@ -352,8 +352,12 @@ function renderAllTab() {
 
   const commodities = [...commodityMap.values()];
   commodities.sort((a, b) => {
-    const aDone = a.amount_delivered >= a.amount_required;
-    const bDone = b.amount_delivered >= b.amount_required;
+    const aFc = state.cargo.fc.find(c => c.name === a.name)?.count ?? 0;
+    const bFc = state.cargo.fc.find(c => c.name === b.name)?.count ?? 0;
+    const aNeedsDelivered = Math.max(0, a.amount_required - a.amount_delivered);
+    const bNeedsDelivered = Math.max(0, b.amount_required - b.amount_delivered);
+    const aDone = aNeedsDelivered === 0 || aFc >= aNeedsDelivered;
+    const bDone = bNeedsDelivered === 0 || bFc >= bNeedsDelivered;
     if (aDone !== bDone) return aDone ? 1 : -1;
     return b.amount_required - a.amount_required;
   });
@@ -371,14 +375,23 @@ function renderAllTab() {
     }, 0),
   };
 
+  // Totals row: sum fc cargo and compute gap
+  const totalFc = state.cargo.fc.reduce((s, c) => {
+    return s + (commodityMap.has(c.name) ? c.count : 0);
+  }, 0);
+  const totalGap = commodities.reduce((s, c) => {
+    const fc = state.cargo.fc.find(i => i.name === c.name)?.count ?? 0;
+    return s + Math.max(0, c.amount_required - fc);
+  }, 0);
+
   let html = `
     <table class="commodity-table">
       <thead>
         <tr>
           <th>NAME</th>
           <th>TOTAL</th>
-          <th>REMAINING</th>
           <th>CARRIER</th>
+          <th>REMAINING</th>
           <th>SHIP</th>
         </tr>
       </thead>
@@ -386,16 +399,19 @@ function renderAllTab() {
         <tr class="totals-row">
           <td>Totals</td>
           <td class="col-total">${totals.total}</td>
-          <td class="col-remaining">${totals.remaining}</td>
-          <td class="col-carrier">${totals.carrier}</td>
+          <td class="col-carrier">${totalFc}</td>
+          <td class="${totalGap > 0 ? 'col-remaining' : 'col-zero'}">${totalGap}</td>
           <td class="col-ship">${totals.ship}</td>
         </tr>
   `;
 
   commodities.forEach(c => {
     const cargo = getCargoForCommodity(c.name);
-    const remaining = c.amount_required - c.amount_delivered;
-    const done = isCommodityComplete(c);
+    const needsDelivered = Math.max(0, c.amount_required - c.amount_delivered);
+    const gap = c.amount_required - cargo.fc;
+    const done = needsDelivered === 0 || cargo.fc >= needsDelivered;
+    const gapDisplay = gap <= 0 ? (gap === 0 ? '✓' : `+${Math.abs(gap)}`) : gap;
+    const gapClass = gap <= 0 ? 'col-zero' : 'col-remaining';
     html += `
       <tr class="commodity-row ${done ? 'row-done' : ''}">
         <td class="commodity-name">
@@ -403,8 +419,8 @@ function renderAllTab() {
           ${c.nearest_station ? `<span class="nearest-station copyable" data-copy="${c.nearest_system}">${c.nearest_station} · ${c.nearest_system}${c.nearest_supply != null ? ` · ${c.nearest_supply.toLocaleString()} supply` : ''}</span>` : ''}
         </td>
         <td class="col-total">${c.amount_required}</td>
-        <td class="${remaining > 0 ? 'col-remaining' : 'col-zero'}">${remaining}</td>
         <td class="${cargo.fc > 0 ? 'col-carrier' : 'col-zero'}">${cargo.fc > 0 ? cargo.fc : '—'}</td>
+        <td class="${gapClass}">${gapDisplay}</td>
         <td class="${cargo.ship > 0 ? 'col-ship' : 'col-zero'}">${cargo.ship > 0 ? cargo.ship : '—'}</td>
       </tr>
     `;

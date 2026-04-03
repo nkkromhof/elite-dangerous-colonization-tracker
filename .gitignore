@@ -5,3 +5,4 @@ data/
 *.exe
 bun.lockb
 docs/
+.env

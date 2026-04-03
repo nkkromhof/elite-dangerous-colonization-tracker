@@ -90,10 +90,7 @@ export function saveCargoState(shipCargo, fcCargo) {
       [JSON.stringify(shipCargo), JSON.stringify(fcCargo), now()]
     );
   } catch (e) {
-    getDb().run(
-      `INSERT OR REPLACE INTO cargo_state (id, ship_cargo, fc_cargo, updated_at) VALUES ('singleton', '[]', '[]', ?)`,
-      [now()]
-    );
+    console.error('[commodity-repo] Failed to save cargo state:', e?.message ?? e);
   }
 }
 

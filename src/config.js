@@ -12,9 +12,13 @@ const defaults = {
 };
 
 export const config = {
-  journalDir: env.ED_JOURNAL_DIR ?? defaults.journalDir,
-  dbPath:     env.DB_PATH         ?? defaults.dbPath,
-  port:       Number(env.PORT     ?? defaults.port),
-  transport:  env.TRANSPORT       ?? defaults.transport,
-  logLevel:   env.LOG_LEVEL       ?? defaults.logLevel,
+  journalDir:      env.ED_JOURNAL_DIR    ?? defaults.journalDir,
+  dbPath:          env.DB_PATH           ?? defaults.dbPath,
+  port:            Number(env.PORT       ?? defaults.port),
+  transport:       env.TRANSPORT         ?? defaults.transport,
+  logLevel:        env.LOG_LEVEL         ?? defaults.logLevel,
+  // Optional: value of __Host-InaraUser cookie copied from your browser.
+  // Inara grants higher rate limits and more reliable access to authenticated sessions.
+  // Copy from DevTools → Application → Cookies → inara.cz → __Host-InaraUser
+  inaraUserCookie: env.INARA_USER_COOKIE ?? null,
 };
