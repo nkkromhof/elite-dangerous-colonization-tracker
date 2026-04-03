@@ -1,3 +1,5 @@
+const ALL_TAB_ID = 'all';
+
 const state = {
   constructions: [],
   cargo: { ship: [], fc: [] },
@@ -102,15 +104,17 @@ function connectSSE() {
   });
   es.addEventListener('tab_change', (e) => {
     const data = JSON.parse(e.data);
-    if (state.constructions.length === 0) return;
-    const currentIdx = state.constructions.findIndex(c => c.id === state.activeConstructionId);
+    const tabIds = getTabIds();
+    if (tabIds.length === 0) return;
+    const currentIdx = tabIds.indexOf(state.activeConstructionId);
+    const safeIdx = currentIdx >= 0 ? currentIdx : 0;
     let newIdx;
     if (data.direction === 'next') {
-      newIdx = currentIdx >= state.constructions.length - 1 ? 0 : currentIdx + 1;
+      newIdx = safeIdx >= tabIds.length - 1 ? 0 : safeIdx + 1;
     } else {
-      newIdx = currentIdx <= 0 ? state.constructions.length - 1 : currentIdx - 1;
+      newIdx = safeIdx <= 0 ? tabIds.length - 1 : safeIdx - 1;
     }
-    state.activeConstructionId = state.constructions[newIdx].id;
+    state.activeConstructionId = tabIds[newIdx];
     render();
   });
   es.addEventListener('ship_updated', (e) => {
@@ -183,6 +187,18 @@ function copyToClipboard(text) {
     elements.copyToast.classList.add('visible');
     setTimeout(() => elements.copyToast.classList.remove('visible'), 1500);
   });
+}
+
+function getActiveConstructions() {
+  return state.constructions.filter(c =>
+    c.phase !== 'done' && c.commodities.some(cm => !isCommodityComplete(cm))
+  );
+}
+
+function getTabIds() {
+  const active = getActiveConstructions();
+  const ids = active.length >= 2 ? [ALL_TAB_ID] : [];
+  return ids.concat(state.constructions.map(c => c.id));
 }
 
 function getCargoForCommodity(name) {
@@ -259,7 +275,21 @@ function renderStatusWidget() {
 }
 
 function renderTabs() {
-  elements.tabsContainer.innerHTML = state.constructions.map(c => {
+  const activeConstructions = getActiveConstructions();
+  const showAllTab = activeConstructions.length >= 2;
+
+  // If "All" tab is selected but no longer applicable, fall back to first construction
+  if (state.activeConstructionId === ALL_TAB_ID && !showAllTab) {
+    state.activeConstructionId = state.constructions[0]?.id || null;
+  }
+
+  let allTabHtml = '';
+  if (showAllTab) {
+    const isActive = state.activeConstructionId === ALL_TAB_ID;
+    allTabHtml = `<div class="tab ${isActive ? 'active' : ''}" data-id="${ALL_TAB_ID}"><span>All</span></div>`;
+  }
+
+  const constructionTabsHtml = state.constructions.map(c => {
     const isActive = c.id === state.activeConstructionId;
     const isComplete = c.phase === 'done' || c.commodities.every(isCommodityComplete);
     return `
@@ -270,6 +300,8 @@ function renderTabs() {
       </div>
     `;
   }).join('');
+
+  elements.tabsContainer.innerHTML = allTabHtml + constructionTabsHtml;
 
   elements.tabsContainer.querySelectorAll('.tab').forEach(tab => {
     tab.addEventListener('click', (e) => {
@@ -287,7 +319,111 @@ function renderTabs() {
   });
 }
 
+function renderAllTab() {
+  const activeConstructions = getActiveConstructions();
+  elements.constructionCard.className = 'construction-card';
+
+  // Aggregate commodities by name across all active constructions
+  const commodityMap = new Map();
+  for (const construction of activeConstructions) {
+    for (const cm of construction.commodities) {
+      if (!commodityMap.has(cm.name)) {
+        commodityMap.set(cm.name, {
+          name: cm.name,
+          amount_required: 0,
+          amount_delivered: 0,
+          nearest_station: cm.nearest_station,
+          nearest_system: cm.nearest_system,
+          nearest_supply: cm.nearest_supply,
+        });
+      }
+      const agg = commodityMap.get(cm.name);
+      agg.amount_required += cm.amount_required;
+      agg.amount_delivered += cm.amount_delivered;
+      // Keep the entry with the highest known supply
+      if (cm.nearest_supply != null &&
+          (agg.nearest_supply == null || cm.nearest_supply > agg.nearest_supply)) {
+        agg.nearest_station = cm.nearest_station;
+        agg.nearest_system = cm.nearest_system;
+        agg.nearest_supply = cm.nearest_supply;
+      }
+    }
+  }
+
+  const commodities = [...commodityMap.values()];
+  commodities.sort((a, b) => {
+    const aDone = a.amount_delivered >= a.amount_required;
+    const bDone = b.amount_delivered >= b.amount_required;
+    if (aDone !== bDone) return aDone ? 1 : -1;
+    return b.amount_required - a.amount_required;
+  });
+
+  const totals = {
+    total: commodities.reduce((s, c) => s + c.amount_required, 0),
+    remaining: commodities.reduce((s, c) => s + Math.max(0, c.amount_required - c.amount_delivered), 0),
+    carrier: state.cargo.fc.reduce((s, c) => {
+      const needed = commodityMap.get(c.name);
+      return s + (needed ? Math.min(c.count, Math.max(0, needed.amount_required - needed.amount_delivered)) : 0);
+    }, 0),
+    ship: state.cargo.ship.reduce((s, c) => {
+      const needed = commodityMap.get(c.name);
+      return s + (needed ? Math.min(c.count, Math.max(0, needed.amount_required - needed.amount_delivered)) : 0);
+    }, 0),
+  };
+
+  let html = `
+    <table class="commodity-table">
+      <thead>
+        <tr>
+          <th>NAME</th>
+          <th>TOTAL</th>
+          <th>REMAINING</th>
+          <th>CARRIER</th>
+          <th>SHIP</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="totals-row">
+          <td>Totals</td>
+          <td class="col-total">${totals.total}</td>
+          <td class="col-remaining">${totals.remaining}</td>
+          <td class="col-carrier">${totals.carrier}</td>
+          <td class="col-ship">${totals.ship}</td>
+        </tr>
+  `;
+
+  commodities.forEach(c => {
+    const cargo = getCargoForCommodity(c.name);
+    const remaining = c.amount_required - c.amount_delivered;
+    const done = isCommodityComplete(c);
+    html += `
+      <tr class="commodity-row ${done ? 'row-done' : ''}">
+        <td class="commodity-name">
+          ${c.name}
+          ${c.nearest_station ? `<span class="nearest-station copyable" data-copy="${c.nearest_system}">${c.nearest_station} · ${c.nearest_system}${c.nearest_supply != null ? ` · ${c.nearest_supply.toLocaleString()} supply` : ''}</span>` : ''}
+        </td>
+        <td class="col-total">${c.amount_required}</td>
+        <td class="${remaining > 0 ? 'col-remaining' : 'col-zero'}">${remaining}</td>
+        <td class="${cargo.fc > 0 ? 'col-carrier' : 'col-zero'}">${cargo.fc > 0 ? cargo.fc : '—'}</td>
+        <td class="${cargo.ship > 0 ? 'col-ship' : 'col-zero'}">${cargo.ship > 0 ? cargo.ship : '—'}</td>
+      </tr>
+    `;
+  });
+
+  html += '</tbody></table>';
+  elements.constructionCard.innerHTML = html;
+
+  elements.constructionCard.querySelectorAll('.nearest-station.copyable').forEach(el => {
+    el.addEventListener('click', () => copyToClipboard(el.dataset.copy));
+  });
+}
+
 function renderConstructionCard() {
+  if (state.activeConstructionId === ALL_TAB_ID) {
+    renderAllTab();
+    return;
+  }
+
   const construction = state.constructions.find(c => c.id === state.activeConstructionId);
   if (!construction) {
     elements.constructionCard.innerHTML = '<p style="color:var(--color-text-muted);">No construction selected</p>';
