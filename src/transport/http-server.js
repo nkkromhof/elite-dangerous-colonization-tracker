@@ -1,4 +1,4 @@
-import { handleConstructions, handleConstruction, handleCommodities } from './routes/constructions.js';
+import { handleConstructions, handleConstruction, handleCommodities, handleRefreshStations } from './routes/constructions.js';
 import { handlePhaseTransition } from './routes/phase.js';
 import { handleHotkey } from './routes/hotkey.js';
 import { handleState } from './routes/state.js';
@@ -47,6 +47,9 @@ export function startHttpServer(deps, port) {
 
       const commodityMatch = path.match(/^\/api\/constructions\/([^/]+)\/commodities\/(.+)$/);
       if (commodityMatch) return handleCommodities(req, commodityMatch[1], deps);
+
+      const refreshMatch = path.match(/^\/api\/constructions\/([^/]+)\/refresh-stations$/);
+      if (refreshMatch) return handleRefreshStations(req, refreshMatch[1], deps);
 
       // Serve static files from public/
       if (path === '/' || !path.startsWith('/api')) {

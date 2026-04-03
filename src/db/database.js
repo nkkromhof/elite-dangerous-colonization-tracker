@@ -66,6 +66,31 @@ function _migrateNearestStation(db) {
   }
 }
 
+function _migrateMarketCache(db) {
+  db.run(`
+    CREATE TABLE IF NOT EXISTS system_coordinates (
+      system_name TEXT PRIMARY KEY,
+      x           REAL NOT NULL,
+      y           REAL NOT NULL,
+      z           REAL NOT NULL,
+      updated_at  TEXT NOT NULL
+    )
+  `);
+  db.run(`
+    CREATE TABLE IF NOT EXISTS station_market_cache (
+      market_id    INTEGER PRIMARY KEY,
+      station_name TEXT NOT NULL,
+      station_type TEXT,
+      system_name  TEXT NOT NULL,
+      x            REAL,
+      y            REAL,
+      z            REAL,
+      inventory    TEXT NOT NULL,
+      recorded_at  TEXT NOT NULL
+    )
+  `);
+}
+
 /** @returns {import('bun:sqlite').Database} */
 export function getDb() {
   return _db;
@@ -82,5 +107,6 @@ export function initDb(dbPath = ':memory:') {
   _db = new Database(dbPath, { create: true });
   _db.exec(SCHEMA_SQL);
   _migrateNearestStation(_db);
+  _migrateMarketCache(_db);
   return _db;
 }

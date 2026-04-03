@@ -418,6 +418,24 @@ function renderAllTab() {
   });
 }
 
+async function refreshStations(constructionId) {
+  try {
+    const res = await fetch(`/api/constructions/${constructionId}/refresh-stations`, { method: 'POST' });
+    const data = await res.json();
+    const msg = data.queued > 0
+      ? `Queued ${data.queued} station lookup${data.queued !== 1 ? 's' : ''}`
+      : 'No failed lookups to retry';
+    elements.copyToast.textContent = msg;
+    elements.copyToast.classList.add('visible');
+    setTimeout(() => {
+      elements.copyToast.classList.remove('visible');
+      elements.copyToast.textContent = 'Copied!';
+    }, 2500);
+  } catch (err) {
+    console.error('Failed to refresh stations:', err);
+  }
+}
+
 function renderConstructionCard() {
   if (state.activeConstructionId === ALL_TAB_ID) {
     renderAllTab();
@@ -432,6 +450,10 @@ function renderConstructionCard() {
 
   const isComplete = construction.phase === 'done' || construction.commodities.every(isCommodityComplete);
   elements.constructionCard.className = `construction-card ${isComplete ? 'completed' : ''}`;
+
+  const hasFailedLookups = construction.commodities.some(
+    c => !isCommodityComplete(c) && c.nearest_queried_at && !c.nearest_station
+  );
 
   const totals = {
     total: construction.commodities.reduce((s, c) => s + c.amount_required, 0),
@@ -459,7 +481,7 @@ function renderConstructionCard() {
       </thead>
       <tbody>
         <tr class="totals-row">
-          <td>Totals</td>
+          <td>Totals${hasFailedLookups ? ' <button class="refresh-stations-btn" title="Retry failed Inara station lookups">Refresh stations</button>' : ''}</td>
           <td class="col-total">${totals.total}</td>
           <td class="col-remaining">${totals.remaining}</td>
           <td class="col-carrier">${totals.carrier}</td>
@@ -498,6 +520,11 @@ function renderConstructionCard() {
   elements.constructionCard.querySelectorAll('.nearest-station.copyable').forEach(el => {
     el.addEventListener('click', () => copyToClipboard(el.dataset.copy));
   });
+
+  const refreshBtn = elements.constructionCard.querySelector('.refresh-stations-btn');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', () => refreshStations(construction.id));
+  }
 }
 
 init();

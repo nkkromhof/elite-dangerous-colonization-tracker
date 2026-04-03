@@ -58,6 +58,12 @@ export function handleCommodities(req, constructionId, { manager }) {
   return notFound();
 }
 
+export function handleRefreshStations(req, constructionId, { stationLookupService }) {
+  if (req.method !== 'POST') return notFound();
+  const queued = stationLookupService.refreshConstruction(constructionId);
+  return json({ queued });
+}
+
 const json = (data, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
 const notFound = () => new Response('Not Found', { status: 404 });

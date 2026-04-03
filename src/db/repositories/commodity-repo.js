@@ -43,11 +43,29 @@ export function setDelivered(constructionId, commodityName, amount) {
 }
 
 export function updateNearestStation(constructionId, commodityName, { station, system, supply, queriedAt }) {
+  if (queriedAt === null || queriedAt === undefined) {
+    // Transient failure — clear station data but leave nearest_queried_at untouched
+    // so _needsLookup() still sees it as unqueried and retries next startup/refresh.
+    getDb().run(
+      `UPDATE commodity_slots
+       SET nearest_station = NULL, nearest_system = NULL, nearest_supply = NULL
+       WHERE construction_id = ? AND name = ?`,
+      [constructionId, commodityName]
+    );
+  } else {
+    getDb().run(
+      `UPDATE commodity_slots
+       SET nearest_station = ?, nearest_system = ?, nearest_supply = ?, nearest_queried_at = ?
+       WHERE construction_id = ? AND name = ?`,
+      [station ?? null, system ?? null, supply ?? null, queriedAt, constructionId, commodityName]
+    );
+  }
+}
+
+export function clearFailedStationLookups(constructionId) {
   getDb().run(
-    `UPDATE commodity_slots
-     SET nearest_station = ?, nearest_system = ?, nearest_supply = ?, nearest_queried_at = ?
-     WHERE construction_id = ? AND name = ?`,
-    [station ?? null, system ?? null, supply ?? null, queriedAt, constructionId, commodityName]
+    `UPDATE commodity_slots SET nearest_queried_at = NULL WHERE construction_id = ? AND nearest_station IS NULL`,
+    [constructionId]
   );
 }
 

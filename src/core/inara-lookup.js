@@ -1,4 +1,7 @@
 import { INARA_COMMODITY_IDS } from '../../public/inara-commodity-ids.js';
+import { logger } from './logger.js';
+
+const TAG = 'InaraLookup';
 
 const SEARCH_RANGE_LY = 500;
 const USER_AGENT = 'ED-Colonisation-Tracker/1.0 (https://github.com/nicholasrobinson/elite-dangerous-colonization-tracker)';
@@ -77,30 +80,49 @@ function parseAllRows(html) {
   return results;
 }
 
+function isTransientStatus(status) {
+  return status === 429 || status === 503 || status === 502 || status === 504;
+}
+
 /**
  * Fetch the nearest station from Inara selling the given commodity.
  * @param {string} nameInternal  e.g. "$FoodCartridges_Name;"
  * @param {string} systemName    reference system for distance sorting
- * @returns {Promise<{station:string, system:string, distanceLy:number, supply:number|null}|null>}
+ * @returns {Promise<{ data: {station,system,distanceLy,supply}|null, transient: boolean }>}
+ *   transient=true means a retriable error (rate limit, network); queriedAt should NOT be stamped.
+ *   transient=false means a definitive answer (success or genuinely no results).
  */
 export async function lookupNearestStation(nameInternal, systemName) {
   const id = inaraId(nameInternal);
-  if (!id) return null;
+  if (!id) {
+    logger.warn(TAG, `No Inara ID for ${nameInternal} — skipping`);
+    return { data: null, transient: false };
+  }
 
   const url = buildUrl([id], systemName);
+  logger.debug(TAG, `GET ${url}`);
   try {
     const resp = await fetch(url, {
       headers: { 'User-Agent': USER_AGENT },
       signal: AbortSignal.timeout(15_000),
     });
-    if (!resp.ok) return null;
+    if (!resp.ok) {
+      const transient = isTransientStatus(resp.status);
+      logger.warn(TAG, `HTTP ${resp.status} for ${nameInternal} (${systemName})${transient ? ' — will retry' : ''}`);
+      return { data: null, transient };
+    }
     const html = await resp.text();
     const rows = parseAllRows(html);
-    if (rows.length === 0) return null;
+    if (rows.length === 0) {
+      logger.info(TAG, `No results for ${nameInternal} near ${systemName}`);
+      return { data: null, transient: false };
+    }
     const { station, system, distanceLy, supply } = rows[0];
-    return { station, system, distanceLy, supply };
-  } catch {
-    return null;
+    logger.info(TAG, `${nameInternal} → ${station} / ${system} (${distanceLy} ly, supply ${supply})`);
+    return { data: { station, system, distanceLy, supply }, transient: false };
+  } catch (err) {
+    logger.warn(TAG, `Fetch failed for ${nameInternal}: ${err?.message ?? err}`);
+    return { data: null, transient: true };
   }
 }
 
@@ -116,7 +138,8 @@ export async function lookupNearestStation(nameInternal, systemName) {
  *
  * @param {string[]} nameInternalList
  * @param {string}   systemName
- * @returns {Promise<{ found: Record<string,{station,system,distanceLy,supply}>, unresolved: string[] }>}
+ * @returns {Promise<{ found: Record<string,{station,system,distanceLy,supply}>, unresolved: string[], transient: boolean }>}
+ *   transient=true means a retriable error affected this group; affected items should not get queriedAt stamped.
  */
 export async function lookupNearestStationsForGroup(nameInternalList, systemName) {
   const entries = nameInternalList
@@ -124,26 +147,38 @@ export async function lookupNearestStationsForGroup(nameInternalList, systemName
     .filter(e => e.id !== null);
 
   const noId = nameInternalList.filter(n => !entries.some(e => e.nameInternal === n));
+  if (noId.length > 0) {
+    logger.warn(TAG, `No Inara ID for: ${noId.join(', ')}`);
+  }
 
   if (entries.length === 0) {
-    return { found: {}, unresolved: nameInternalList };
+    return { found: {}, unresolved: nameInternalList, transient: false };
   }
 
   const url = buildUrl(entries.map(e => e.id), systemName);
+  logger.debug(TAG, `GET (group, ${entries.length} commodities) ${url}`);
   try {
     const resp = await fetch(url, {
       headers: { 'User-Agent': USER_AGENT },
       signal: AbortSignal.timeout(15_000),
     });
-    if (!resp.ok) return { found: {}, unresolved: nameInternalList };
+    if (!resp.ok) {
+      const transient = isTransientStatus(resp.status);
+      logger.warn(TAG, `HTTP ${resp.status} for group [${nameInternalList.join(', ')}] near ${systemName}${transient ? ' — will retry' : ''}`);
+      return { found: {}, unresolved: nameInternalList, transient };
+    }
 
     const html = await resp.text();
     const rows = parseAllRows(html);
 
-    if (rows.length === 0) return { found: {}, unresolved: nameInternalList };
+    if (rows.length === 0) {
+      logger.info(TAG, `No results for group [${nameInternalList.join(', ')}] near ${systemName}`);
+      return { found: {}, unresolved: nameInternalList, transient: false };
+    }
 
     // The first row has the highest coverage (Inara sorts coverage DESC first).
     const best = rows[0];
+    logger.debug(TAG, `Group best: ${best.station} / ${best.system}, coverage ${best.coverageCount}/${entries.length}`);
 
     if (best.coverageCount >= entries.length) {
       // Station sells ALL queried commodities. Assign it to all of them.
@@ -160,13 +195,16 @@ export async function lookupNearestStationsForGroup(nameInternalList, systemName
           supply:     entry.id === primaryId ? best.supply : null,
         };
       }
-      return { found, unresolved: noId };
+      logger.info(TAG, `Group fully resolved → ${best.station} / ${best.system} for ${entries.length} commodities`);
+      return { found, unresolved: noId, transient: false };
     }
 
     // Station doesn't cover all commodities. We can't determine which specific
     // ones are missing from the HTML alone, so fall back to individual queries.
-    return { found: {}, unresolved: nameInternalList };
-  } catch {
-    return { found: {}, unresolved: nameInternalList };
+    logger.info(TAG, `Group partial coverage (${best.coverageCount}/${entries.length}) — falling back to individual queries`);
+    return { found: {}, unresolved: nameInternalList, transient: false };
+  } catch (err) {
+    logger.warn(TAG, `Fetch failed for group [${nameInternalList.join(', ')}]: ${err?.message ?? err}`);
+    return { found: {}, unresolved: nameInternalList, transient: true };
   }
 }

@@ -11,6 +11,7 @@ import { DeliveryDetector } from './src/core/delivery-detector.js';
 import { PhaseMachine } from './src/core/phase-machine.js';
 import { ShipTracker } from './src/core/ship-tracker.js';
 import { StationLookupService } from './src/core/station-lookup-service.js';
+import { MarketTracker } from './src/core/market-tracker.js';
 import { SseHandler } from './src/transport/sse-handler.js';
 import { startHttpServer } from './src/transport/http-server.js';
 import { readFileSync } from 'fs';
@@ -45,6 +46,7 @@ const readCargo = () => {
 cargoTracker.setShipCargo(readCargo());
 
 new DeliveryDetector(eventBus, constructionManager);
+new MarketTracker(eventBus, config.journalDir);
 const stationLookupService = new StationLookupService(eventBus, constructionManager);
 
 eventBus.on('journal:cargo_changed', () => cargoTracker.setShipCargo(readCargo()));
@@ -65,7 +67,7 @@ eventBus.on('delivery:detected', ({ commodity, amount, constructionId }) => {
 eventBus.on('cargo:updated', ({ ship, fc }) => saveCargoState(ship, fc));
 
 const sseHandler = new SseHandler(eventBus);
-startHttpServer({ manager: constructionManager, machine: phaseMachine, cargoTracker, shipTracker, sseHandler }, config.port);
+startHttpServer({ manager: constructionManager, machine: phaseMachine, cargoTracker, shipTracker, sseHandler, stationLookupService }, config.port);
 
 stationLookupService.checkAll();
 
