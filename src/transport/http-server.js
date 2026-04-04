@@ -2,6 +2,7 @@ import { handleConstructions, handleConstruction, handleCommodities, handleRefre
 import { handlePhaseTransition } from './routes/phase.js';
 import { handleHotkey } from './routes/hotkey.js';
 import { handleState } from './routes/state.js';
+import { handleCargoUpdate } from './routes/cargo.js';
 
 /**
  * @param {object} deps
@@ -50,6 +51,9 @@ export function startHttpServer(deps, port) {
 
       const refreshMatch = path.match(/^\/api\/constructions\/([^/]+)\/refresh-stations$/);
       if (refreshMatch) return handleRefreshStations(req, refreshMatch[1], deps);
+
+      // Cargo update
+      if (path === '/api/cargo/fc') return handleCargoUpdate(req, deps);
 
       // Serve static files from public/
       if (path === '/' || !path.startsWith('/api')) {

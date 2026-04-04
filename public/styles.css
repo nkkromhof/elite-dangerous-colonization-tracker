@@ -361,7 +361,7 @@ html, body {
 .commodity-name { font-weight: 600; }
 .col-total { color: #fff; font-weight: 500; }
 .col-remaining { color: var(--color-remaining); font-weight: 700; }
-.col-carrier { color: var(--color-carrier); font-weight: 600; }
+.col-carrier { color: var(--color-carrier); font-weight: 600; cursor: pointer; }
 .col-ship { color: var(--color-success); font-weight: 600; }
 .col-zero { color: #444; }
 .row-done { opacity: 0.35; }
@@ -601,3 +601,97 @@ html, body {
   color: var(--color-text-muted);
   margin-top: 2px;
 }
+
+/* CARRIER STEPPER */
+.stepper-cell {
+  padding: 0.5rem !important;
+}
+
+.stepper-control {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+}
+
+.stepper-btn {
+  width: 3rem;
+  height: 3rem;
+  min-width: 3rem;
+  min-height: 3rem;
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: 0.5rem;
+  color: var(--color-text);
+  font-size: 1.5rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: background 0.1s, border-color 0.1s, transform 0.1s;
+}
+
+.stepper-btn:hover { border-color: var(--color-carrier); background: #222; }
+.stepper-btn:active,
+.stepper-btn.pressed { background: var(--color-primary); border-color: var(--color-carrier); transform: scale(0.95); }
+
+.stepper-input {
+  width: 4rem;
+  height: 3rem;
+  background: #111;
+  border: 2px solid var(--color-border);
+  border-radius: 0.5rem;
+  color: var(--color-text);
+  font-size: 1.25rem;
+  font-weight: 600;
+  text-align: center;
+  outline: none;
+}
+
+.stepper-input:focus { border-color: var(--color-carrier); }
+
+.stepper-input::-webkit-inner-spin-button,
+.stepper-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.stepper-input[type=number] {
+  -moz-appearance: textfield;
+}
+
+.stepper-actions {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.375rem;
+}
+
+.stepper-save {
+  padding: 0.5rem 1.5rem;
+  background: var(--color-carrier);
+  color: #111;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.stepper-save:hover { background: #c9a7f7; }
+
+.stepper-cancel {
+  padding: 0.5rem 1.5rem;
+  background: #333;
+  color: #fff;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.stepper-cancel:hover { background: #444; }

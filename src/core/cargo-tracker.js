@@ -104,6 +104,21 @@ export class CargoTracker {
     }
   }
 
+  updateFcCargo(commodityName, newCount) {
+    const count = Math.max(0, Math.floor(Number(newCount) || 0));
+    const existing = this._fc.find(c => c.name === commodityName);
+    if (existing) {
+      if (count === 0) {
+        this._fc.splice(this._fc.indexOf(existing), 1);
+      } else {
+        existing.count = count;
+      }
+    } else if (count > 0) {
+      this._fc.push({ name: commodityName, count });
+    }
+    this._bus.emit('cargo:updated', { ship: this.getShipCargo(), fc: this.getFcCargo() });
+  }
+
   getShipCargo() { return [...this._ship]; }
   getFcCargo()   { return [...this._fc]; }
   getFcMarketId() { return this._fcMarketId; }

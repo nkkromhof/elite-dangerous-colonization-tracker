@@ -1,5 +1,52 @@
 const ALL_TAB_ID = 'all';
 
+const STEPPER_CONFIG = {
+  holdDelay: 300,
+  holdInterval: 100,
+};
+
+function getStep(elapsed) {
+  if (elapsed >= 2500) return 100;
+  if (elapsed >= 1000) return 10;
+  return 1;
+}
+
+let holdTimer = null;
+let holdInterval = null;
+let holdButton = null;
+let holdWasActive = false;
+
+function clearHoldTimers() {
+  if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+  if (holdInterval) { clearTimeout(holdInterval); holdInterval = null; }
+  if (holdButton) { holdButton.classList.remove('pressed'); holdButton = null; }
+}
+
+function startHold(btn, direction, inputEl) {
+  clearHoldTimers();
+  holdButton = btn;
+  holdWasActive = false;
+  btn.classList.add('pressed');
+
+  const startTime = Date.now();
+
+  function tick() {
+    const step = getStep(Date.now() - startTime);
+    const val = parseInt(inputEl.value, 10) || 0;
+    inputEl.value = Math.max(0, val + direction * step);
+    holdInterval = setTimeout(tick, STEPPER_CONFIG.holdInterval);
+  }
+
+  holdTimer = setTimeout(() => {
+    holdWasActive = true;
+    tick();
+  }, STEPPER_CONFIG.holdDelay);
+}
+
+function stopHold() {
+  clearHoldTimers();
+}
+
 const state = {
   constructions: [],
   cargo: { ship: [], fc: [] },
@@ -7,6 +54,7 @@ const state = {
   activeConstructionId: null,
   pendingDeleteId: null,
   sessionErrors: [],
+  editingCell: null,
 };
 
 const elements = {
@@ -35,6 +83,7 @@ function init() {
   fetchState();
   connectSSE();
   setupEventListeners();
+  setupStepperListeners();
 }
 
 function loadZoom() {
@@ -618,6 +667,116 @@ function renderConstructionCard() {
   if (refreshBtn) {
     refreshBtn.addEventListener('click', () => refreshStations(construction.id));
   }
+}
+
+function openStepper(td, commodityName, currentValue) {
+  if (state.editingCell) closeStepper(false);
+
+  state.editingCell = { td, commodityName, originalValue: currentValue };
+  td.classList.add('stepper-cell');
+  td.innerHTML = `
+    <div class="stepper-control">
+      <button class="stepper-btn stepper-minus">−</button>
+      <input type="number" class="stepper-input" value="${currentValue}" min="0" name="stepper-value" />
+      <button class="stepper-btn stepper-plus">+</button>
+    </div>
+    <div class="stepper-actions">
+      <button class="stepper-save">Save</button>
+      <button class="stepper-cancel">Cancel</button>
+    </div>
+  `;
+
+  const input = td.querySelector('.stepper-input');
+  const minusBtn = td.querySelector('.stepper-minus');
+  const plusBtn = td.querySelector('.stepper-plus');
+  const saveBtn = td.querySelector('.stepper-save');
+  const cancelBtn = td.querySelector('.stepper-cancel');
+
+  function pointerDown(btn, dir) {
+    btn.addEventListener('mousedown', (e) => { e.preventDefault(); startHold(btn, dir, input); });
+    btn.addEventListener('touchstart', (e) => { e.preventDefault(); startHold(btn, dir, input); }, { passive: false });
+  }
+  pointerDown(minusBtn, -1);
+  pointerDown(plusBtn, 1);
+
+  const pointerUp = () => stopHold();
+  document.addEventListener('mouseup', pointerUp);
+  document.addEventListener('touchend', pointerUp);
+
+  minusBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!holdWasActive) input.value = Math.max(0, (parseInt(input.value, 10) || 0) - 1);
+  });
+  plusBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!holdWasActive) input.value = Math.max(0, (parseInt(input.value, 10) || 0) + 1);
+  });
+  saveBtn.addEventListener('click', (e) => { e.stopPropagation(); saveStepper(); });
+  cancelBtn.addEventListener('click', (e) => { e.stopPropagation(); closeStepper(false); });
+  input.addEventListener('click', (e) => e.stopPropagation());
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.stopPropagation(); saveStepper(); }
+    if (e.key === 'Escape') { e.stopPropagation(); closeStepper(false); }
+  });
+}
+
+function closeStepper(shouldSave) {
+  if (!state.editingCell) return;
+  clearHoldTimers();
+  if (shouldSave) {
+    saveStepper();
+  } else {
+    const { td, originalValue } = state.editingCell;
+    td.classList.remove('stepper-cell');
+    td.innerHTML = originalValue > 0 ? originalValue : '—';
+    td.className = originalValue > 0 ? 'col-carrier' : 'col-zero';
+    state.editingCell = null;
+  }
+}
+
+async function saveStepper() {
+  if (!state.editingCell) return;
+  const { td, commodityName } = state.editingCell;
+  const input = td.querySelector('.stepper-input');
+  const newValue = Math.max(0, parseInt(input.value, 10) || 0);
+
+  try {
+    const res = await fetch('/api/cargo/fc', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ commodityName, count: newValue }),
+    });
+    if (res.ok) {
+      state.editingCell = null;
+      render();
+    } else {
+      console.error('Failed to save carrier cargo');
+    }
+  } catch (err) {
+    console.error('Failed to save carrier cargo:', err);
+  }
+}
+
+function setupStepperListeners() {
+  elements.constructionCard.addEventListener('click', (e) => {
+    if (state.editingCell) return;
+    const td = e.target.closest('.col-carrier');
+    if (!td) return;
+
+    const row = td.closest('.commodity-row, .totals-row');
+    if (!row) return;
+
+    if (row.classList.contains('totals-row')) {
+      return;
+    }
+
+    const nameEl = row.querySelector('.commodity-name');
+    if (!nameEl) return;
+    const commodityName = nameEl.textContent.trim().split('\n')[0].trim();
+    const currentValue = state.cargo.fc.find(c => c.name === commodityName)?.count || 0;
+
+    openStepper(td, commodityName, currentValue);
+  });
 }
 
 init();
