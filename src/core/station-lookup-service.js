@@ -11,6 +11,7 @@ const REQUEST_DELAY_MS   = 5_000;                // be polite to Inara
 const RETRY_DELAY_MS     = 60_000;               // wait after a rate-limit hit before retrying
 const CACHE_MAX_AGE_DAYS = 7;
 const INARA_SEARCH_RANGE = 500;                  // ly — must match inara-lookup.js
+const RESULT_CACHE_TTL   = 5 * 60 * 1000;        // 5 min — short-lived in-memory result cache
 
 export class StationLookupService {
   /**
@@ -22,6 +23,12 @@ export class StationLookupService {
     this._manager = manager;
     this._queue = [];
     this._processing = false;
+
+    // Short-lived cache of lookup results keyed by "nameInternal\0referenceSystem".
+    // Survives across a single processing pass so late-arriving slots (via events)
+    // can instantly resolve from results we just fetched seconds ago.
+    /** @type {Map<string, { station: string|null, system: string|null, supply: number|null, queriedAt: string, expiresAt: number }>} */
+    this._resultCache = new Map();
 
     bus.on('commodity:updated', ({ constructionId, slot }) => {
       if (this._needsLookup(slot)) this._enqueue(constructionId, slot);
@@ -50,7 +57,6 @@ export class StationLookupService {
     clearFailedStationLookups(constructionId);
     let queued = 0;
     for (const slot of this._manager.getCommoditySlots(constructionId)) {
-      // Re-read from DB so nearest_queried_at reflects the cleared state
       const fresh = getCommoditySlot(constructionId, slot.name);
       if (fresh && this._needsLookup(fresh)) {
         this._enqueue(constructionId, fresh);
@@ -79,33 +85,71 @@ export class StationLookupService {
     if (!this._processing) this._process();
   }
 
+  /**
+   * Build a dedup key for a commodity lookup: same commodity near the same system
+   * yields the same Inara/cache result regardless of which construction is asking.
+   */
+  _lookupKey(nameInternal, referenceSystem) {
+    return `${nameInternal}\0${referenceSystem}`;
+  }
+
   async _process() {
     this._processing = true;
     while (this._queue.length > 0) {
       const batch = this._queue.splice(0, this._queue.length);
 
-      // Phase 1: resolve everything possible from local cache — instant, no network.
-      const needsInara = [];
-      const cachedAt = new Date().toISOString();
+      // ── Step 1: Group queue items by (commodity, referenceSystem) ───────
+      // Multiple constructions wanting the same commodity near the same system
+      // collapse into a single lookup with multiple fan-out targets.
+      /** @type {Map<string, { nameInternal: string, referenceSystem: string, targets: { constructionId: string, commodityName: string }[] }>} */
+      const groups = new Map();
       for (const item of batch) {
         const construction = this._manager.getConstruction(item.constructionId);
         if (!construction) continue;
-        const cached = this._checkCache(item.nameInternal, construction.system_name);
-        if (cached) {
-          this._record(item.constructionId, item.commodityName, cached.station, cached.system, cached.supply, cachedAt);
-        } else {
-          needsInara.push(item);
+        const key = this._lookupKey(item.nameInternal, construction.system_name);
+        if (!groups.has(key)) {
+          groups.set(key, { nameInternal: item.nameInternal, referenceSystem: construction.system_name, targets: [] });
         }
+        groups.get(key).targets.push({ constructionId: item.constructionId, commodityName: item.commodityName });
       }
 
-      if (batch.length > needsInara.length) {
-        logger.info(TAG, `Cache resolved ${batch.length - needsInara.length}/${batch.length} commodities instantly`);
+      const deduped = batch.length - groups.size;
+      if (deduped > 0) {
+        logger.info(TAG, `Deduplicated ${deduped} lookups (${batch.length} slots → ${groups.size} unique queries)`);
       }
 
-      // Phase 2: query Inara one at a time, with polite delays between requests.
+      // ── Step 2: Resolve from in-memory result cache + local market cache ─
+      const needsInara = [];
+      const cachedAt = new Date().toISOString();
+
+      for (const [key, group] of groups) {
+        // Check short-lived in-memory result cache first (from a recent Inara hit)
+        const cached = this._getResultCache(key);
+        if (cached) {
+          logger.debug(TAG, `Result cache hit: ${group.nameInternal} near ${group.referenceSystem}`);
+          this._fanOut(group.targets, cached.station, cached.system, cached.supply, cached.queriedAt);
+          continue;
+        }
+
+        // Check local market cache (station_market_cache via indexed query)
+        const marketHit = this._checkCache(group.nameInternal, group.referenceSystem);
+        if (marketHit) {
+          this._fanOut(group.targets, marketHit.station, marketHit.system, marketHit.supply, cachedAt);
+          this._setResultCache(key, marketHit.station, marketHit.system, marketHit.supply, cachedAt);
+          continue;
+        }
+
+        needsInara.push({ key, group });
+      }
+
+      if (groups.size > needsInara.length) {
+        logger.info(TAG, `Cache resolved ${groups.size - needsInara.length}/${groups.size} unique commodities instantly`);
+      }
+
+      // ── Step 3: Query Inara one commodity at a time, with polite delays ──
       for (let i = 0; i < needsInara.length; i++) {
-        const { constructionId, commodityName, nameInternal } = needsInara[i];
-        await this._lookup(constructionId, commodityName, nameInternal);
+        const { key, group } = needsInara[i];
+        await this._lookupAndFanOut(key, group);
         if (i < needsInara.length - 1) {
           await new Promise(r => setTimeout(r, REQUEST_DELAY_MS));
         }
@@ -114,7 +158,7 @@ export class StationLookupService {
     this._processing = false;
   }
 
-  /** Write a station result to DB and notify the bus. */
+  /** Write a station result to DB for a single slot and notify the bus. */
   _record(constructionId, commodityName, station, system, supply, queriedAt) {
     updateNearestStation(constructionId, commodityName, {
       station: station ?? null,
@@ -126,9 +170,37 @@ export class StationLookupService {
     if (updated) this._bus.emit('commodity:updated', { constructionId, slot: updated });
   }
 
+  /** Fan out a single lookup result to all slots that were waiting for it. */
+  _fanOut(targets, station, system, supply, queriedAt) {
+    for (const { constructionId, commodityName } of targets) {
+      this._record(constructionId, commodityName, station, system, supply, queriedAt);
+    }
+  }
+
+  // ── In-memory result cache ──────────────────────────────────────────────────
+
+  _getResultCache(key) {
+    const entry = this._resultCache.get(key);
+    if (!entry) return null;
+    if (Date.now() > entry.expiresAt) {
+      this._resultCache.delete(key);
+      return null;
+    }
+    return entry;
+  }
+
+  _setResultCache(key, station, system, supply, queriedAt) {
+    this._resultCache.set(key, {
+      station, system, supply, queriedAt,
+      expiresAt: Date.now() + RESULT_CACHE_TTL,
+    });
+  }
+
+  // ── Cache + Inara lookups ───────────────────────────────────────────────────
+
   /**
    * Check local market cache for a single commodity relative to a construction system.
-   * Returns a result object compatible with Inara result shape, or null if no hit.
+   * Returns a result object or null if no hit.
    */
   _checkCache(nameInternal, systemName) {
     const coords = getSystemCoordinates(systemName);
@@ -144,29 +216,35 @@ export class StationLookupService {
     return { station: hit.stationName, system: hit.systemName, distanceLy: hit.distanceLy, supply: hit.stock };
   }
 
-  async _lookup(constructionId, commodityName, nameInternal) {
-    const construction = this._manager.getConstruction(constructionId);
-    if (!construction) return;
+  async _lookupAndFanOut(key, group) {
+    const { nameInternal, referenceSystem, targets } = group;
 
-    logger.info(TAG, `Querying Inara: ${commodityName} near ${construction.system_name}`);
-    let { data, transient } = await lookupNearestStation(nameInternal, construction.system_name);
+    logger.info(TAG, `Querying Inara: ${nameInternal} near ${referenceSystem} (for ${targets.length} slot${targets.length > 1 ? 's' : ''})`);
+    let { data, transient } = await lookupNearestStation(nameInternal, referenceSystem);
 
     if (transient) {
-      logger.info(TAG, `Transient error for ${commodityName} — retrying in ${RETRY_DELAY_MS / 1000}s`);
+      logger.info(TAG, `Transient error for ${nameInternal} — retrying in ${RETRY_DELAY_MS / 1000}s`);
       await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
-      ({ data, transient } = await lookupNearestStation(nameInternal, construction.system_name));
+      ({ data, transient } = await lookupNearestStation(nameInternal, referenceSystem));
     }
 
     if (!data && !transient) {
-      logger.warn(TAG, `No station found for ${commodityName} near ${construction.system_name} (within 500ly)`);
-      emitError(TAG, `No station found for ${commodityName} within 500ly of ${construction.system_name}`);
+      logger.warn(TAG, `No station found for ${nameInternal} near ${referenceSystem} (within 500ly)`);
+      emitError(TAG, `No station found for ${nameInternal} within 500ly of ${referenceSystem}`);
     } else if (!data && transient) {
-      logger.warn(TAG, `Still failing after retry for ${commodityName} — will retry next run`);
+      logger.warn(TAG, `Still failing after retry for ${nameInternal} — will retry next run`);
     }
 
-    this._record(constructionId, commodityName,
-      data?.station ?? null, data?.system ?? null, data?.supply ?? null,
-      !transient ? new Date().toISOString() : null
-    );
+    const station  = data?.station ?? null;
+    const system   = data?.system ?? null;
+    const supply   = data?.supply ?? null;
+    const queriedAt = !transient ? new Date().toISOString() : null;
+
+    // Cache the result so other slots arriving later can resolve instantly
+    if (!transient) {
+      this._setResultCache(key, station, system, supply, queriedAt);
+    }
+
+    this._fanOut(targets, station, system, supply, queriedAt);
   }
 }

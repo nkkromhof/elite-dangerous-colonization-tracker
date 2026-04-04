@@ -8,7 +8,10 @@
       "Bash(curl -s -A \"ED-Colonisation-Tracker/1.0\" \"https://inara.cz/elite/commodities/?formbrief=1&pi1=1&pi3=3&pi5=50&pi13=1&ps1=Sol&pa1%5B%5D=10&pa1%5B%5D=15&pa1%5B%5D=16&pa1%5B%5D=17&pa1%5B%5D=18&pa1%5B%5D=19&pa1%5B%5D=20&pa1%5B%5D=21&pa1%5B%5D=22\")",
       "Bash(curl -s -A \"ED-Colonisation-Tracker/1.0\" \"https://inara.cz/elite/commodities/?formbrief=1&pi1=1&pi3=3&pi5=50&pi13=1&ps1=Sol&pa1%5B%5D=19\")",
       "Bash(sqlite3 data/colonisation.db \"SELECT fc_cargo FROM cargo_state WHERE id=''singleton'';\")",
-      "Bash(bun -e \":*)"
+      "Bash(bun -e \":*)",
+      "Bash(bun run --bun -e \":*)",
+      "Bash(bun -e \"import ''./src/db/database.js''; import ''./src/core/station-lookup-service.js''; import ''./src/db/repositories/market-cache-repo.js''; console.log\\(''All imports resolved successfully''\\);\")",
+      "Bash(bun test:*)"
     ]
   }
 }

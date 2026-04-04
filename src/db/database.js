@@ -98,6 +98,18 @@ function _migrateMarketCache(db) {
   `);
 }
 
+function _migrateMarketInventoryIndex(db) {
+  db.run(`
+    CREATE TABLE IF NOT EXISTS market_inventory_index (
+      market_id     INTEGER NOT NULL REFERENCES station_market_cache(market_id) ON DELETE CASCADE,
+      name_internal TEXT NOT NULL,
+      stock         INTEGER NOT NULL,
+      PRIMARY KEY (market_id, name_internal)
+    )
+  `);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_inventory_commodity ON market_inventory_index (name_internal, stock)`);
+}
+
 /** @returns {import('bun:sqlite').Database} */
 export function getDb() {
   return _db;
@@ -116,5 +128,6 @@ export function initDb(dbPath = ':memory:') {
   _migrateNearestStation(_db);
   _migrateArchived(_db);
   _migrateMarketCache(_db);
+  _migrateMarketInventoryIndex(_db);
   return _db;
 }
