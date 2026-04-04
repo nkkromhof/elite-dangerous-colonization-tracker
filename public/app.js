@@ -400,6 +400,17 @@ function renderStatusWidget() {
   }).join('');
 }
 
+function formatStationType(type) {
+  if (!type) return '';
+  return type.replace(/([a-z])([A-Z])/g, '$1 $2');
+}
+
+function parseStationName(name) {
+  if (!name) return '';
+  const idx = name.indexOf(':');
+  return idx !== -1 ? name.substring(idx + 1).trimStart() : name;
+}
+
 function renderTabs() {
   const activeConstructions = getActiveConstructions();
   const showAllTab = activeConstructions.length >= 2;
@@ -418,9 +429,14 @@ function renderTabs() {
   const constructionTabsHtml = state.constructions.map(c => {
     const isActive = c.id === state.activeConstructionId;
     const isComplete = c.phase === 'done' || (c.commodities.length > 0 && c.commodities.every(isCommodityComplete));
+    const displayName = parseStationName(c.station_name);
+    const typeLabel = formatStationType(c.station_type);
     return `
       <div class="tab ${isActive ? 'active' : ''} ${isComplete ? 'completed' : ''}" data-id="${c.id}">
-        <span>${c.station_name}</span>
+        <div class="tab-content">
+          <span class="tab-name">${displayName}</span>
+          ${typeLabel ? `<span class="tab-type">${typeLabel}</span>` : ''}
+        </div>
         ${isComplete ? '<span class="badge" style="font-size:12px; padding:4px 10px; background:var(--color-success); border-radius:4px;">✓</span>' : ''}
         <button class="tab-delete" data-delete="${c.id}">×</button>
       </div>

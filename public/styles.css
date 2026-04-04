@@ -267,7 +267,24 @@ html, body {
   display: flex;
   align-items: center;
   gap: 0.625rem;
-  white-space: nowrap;
+}
+
+.tab-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.125rem;
+}
+
+.tab-name {
+  font-size: 1.25rem;
+  line-height: 1.2;
+}
+
+.tab-type {
+  font-size: 0.75rem;
+  opacity: 0.6;
+  line-height: 1;
 }
 
 .tab:hover { border-color: var(--color-primary); }
