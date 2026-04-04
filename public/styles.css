@@ -52,31 +52,40 @@ html, body {
   gap: 0.5rem;
 }
 
-.status-widget {
+.header-btn {
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  gap: 4px;
   padding: 8px 12px;
   background: var(--color-surface);
   border: 2px solid var(--color-border);
   border-radius: 0.5rem;
+  color: var(--color-text-muted);
   cursor: pointer;
   user-select: none;
+  transition: border-color 0.2s, color 0.2s;
 }
 
-.status-widget:hover {
-  border-color: var(--color-primary);
+.header-btn:hover { border-color: var(--color-primary); color: #fff; }
+
+.header-btn svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
 }
 
-.status-icon {
-  font-size: 1.25rem;
-  color: var(--color-success);
+.status-icon-ok {
+  display: block;
 }
 
-.status-icon.has-errors {
+.status-icon-err {
+  display: none;
   color: var(--color-danger);
-  animation: pulse 2s infinite;
 }
+
+.header-btn.has-errors .status-icon-ok { display: none; }
+.header-btn.has-errors .status-icon-err { display: block; }
 
 @keyframes pulse {
   0%, 100% { opacity: 1; }
@@ -91,6 +100,7 @@ html, body {
 
 .status-count.has-errors {
   color: var(--color-danger);
+  animation: pulse 2s infinite;
 }
 
 .status-dropdown {
@@ -491,32 +501,7 @@ html, body {
 
 .delete-confirm-btn.cancel { background: #333; color: #fff; }
 .delete-confirm-btn.cancel:hover { background: #444; }
-.delete-confirm-btn.confirm { background: var(--color-danger); color: #fff; }
 .delete-confirm-btn.confirm:hover { background: #b91c1c; }
-
-/* ARCHIVED BUTTON */
-.archived-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-surface);
-  color: var(--color-text-muted);
-  border: 2px solid var(--color-border);
-  padding: 6px 10px;
-  border-radius: 0.5rem;
-  cursor: pointer;
-  transition: border-color 0.2s, color 0.2s;
-}
-
-.archived-btn svg {
-  width: 18px;
-  height: 18px;
-}
-
-.archived-btn:hover {
-  border-color: var(--color-primary);
-  color: #fff;
-}
 
 /* ARCHIVED MODAL */
 .archived-panel {

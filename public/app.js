@@ -25,7 +25,6 @@ const elements = {
   zoomIn: document.getElementById('zoom-in'),
   zoomDisplay: document.getElementById('zoom-display'),
   statusWidget: document.getElementById('status-widget'),
-  statusIcon: document.getElementById('status-icon'),
   statusCount: document.getElementById('status-count'),
   statusDropdown: document.getElementById('status-dropdown'),
   statusList: document.getElementById('status-list'),
@@ -329,17 +328,16 @@ function renderShipBar() {
 function renderStatusWidget() {
   const count = state.sessionErrors.length;
   const hasErrors = count > 0;
-  
-  elements.statusIcon.textContent = hasErrors ? '!' : '✓';
-  elements.statusIcon.className = 'status-icon' + (hasErrors ? ' has-errors' : '');
+
+  elements.statusWidget.className = 'header-btn' + (hasErrors ? ' has-errors' : '');
   elements.statusCount.textContent = hasErrors ? count : '';
   elements.statusCount.className = 'status-count' + (hasErrors ? ' has-errors' : '');
-  
+
   if (count === 0) {
     elements.statusList.innerHTML = '<div class="status-item" style="color:var(--color-text-muted);">No errors this session</div>';
     return;
   }
-  
+
   elements.statusList.innerHTML = state.sessionErrors.map(err => {
     const time = new Date(err.timestamp).toLocaleTimeString();
     return `
