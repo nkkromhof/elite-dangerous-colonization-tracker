@@ -541,7 +541,7 @@ function renderAllTab() {
         <tr class="totals-row">
           <td>Totals</td>
           <td class="col-total">${totals.total}</td>
-          <td class="col-carrier">${totalFc}</td>
+          <td class="col-carrier">${totals.carrier}</td>
           <td class="${totalGap > 0 ? 'col-remaining' : 'col-zero'}">${totalGap}</td>
           <td class="col-ship">${totals.ship}</td>
         </tr>
