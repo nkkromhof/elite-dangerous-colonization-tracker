@@ -60,13 +60,13 @@ const readFcCargo = () => {
 // Sync ship cargo from Cargo.json immediately on startup
 cargoTracker.setShipCargo(readCargo());
 
-// Sync FC cargo from Market.json immediately on startup (if last market visit was a fleet carrier)
-const fcSnapshot = readFcCargo();
-if (fcSnapshot) {
-  cargoTracker.setFcCargoFromMarket(fcSnapshot.marketId, fcSnapshot.items);
-  console.log(`FC cargo loaded (marketId=${fcSnapshot.marketId}):`);
-  for (const { name, count } of fcSnapshot.items) console.log(`  ${name}: ${count}`);
-}
+// Boot-time FC cargo sync from Market.json is disabled pending investigation
+// const fcSnapshot = readFcCargo();
+// if (fcSnapshot) {
+//   cargoTracker.setFcCargoFromMarket(fcSnapshot.marketId, fcSnapshot.items);
+//   console.log(`FC cargo loaded (marketId=${fcSnapshot.marketId}):`);
+//   for (const { name, count } of fcSnapshot.items) console.log(`  ${name}: ${count}`);
+// }
 
 new DeliveryDetector(eventBus, constructionManager);
 new MarketTracker(eventBus, config.journalDir);

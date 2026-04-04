@@ -107,7 +107,7 @@ export class JournalWatcher {
         this._currentFile = filePath;
         this._byteOffset = 0;
       }
-      this._byteOffset = await this._readFrom(filePath, this._byteOffset);
+this._byteOffset = await this._readFrom(filePath, this._byteOffset);
     });
 
     this._watcher.on('add', async (filePath) => {

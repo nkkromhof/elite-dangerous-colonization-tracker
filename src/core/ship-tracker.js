@@ -28,21 +28,22 @@ export class ShipTracker {
 
     try {
       const lines = readFileSync(journalPath, 'utf8').split('\n');
-      let lastLoadGame = null;
-      let lastLoadout = null;
+      const sessionEvents = [];
 
       for (const line of lines) {
         if (!line.trim()) continue;
         try {
           const event = JSON.parse(line);
-          if (event.event === 'LoadGame') lastLoadGame = event;
-          if (event.event === 'Loadout') lastLoadout = event;
+          if (event.event === 'LoadGame') {
+            sessionEvents.length = 0; // new session resets state
+            sessionEvents.push(event);
+          } else if (event.event === 'ShipyardSwap' || event.event === 'Loadout') {
+            sessionEvents.push(event);
+          }
         } catch { /* skip malformed lines */ }
       }
 
-      // Replay in order so name from LoadGame is available when Loadout runs
-      if (lastLoadGame) this._handle(lastLoadGame);
-      if (lastLoadout) this._handle(lastLoadout);
+      sessionEvents.forEach(e => this._handle(e));
     } catch { /* journal unreadable */ }
   }
 
@@ -54,6 +55,13 @@ export class ShipTracker {
         this._bus.emit('ship:updated', this._ship);
         break;
       }
+      case 'ShipyardSwap': {
+        const name = event.ShipType_Localised ?? event.ShipType ?? null;
+        this._ship = { ...this._ship, name };
+        console.log('[ShipTracker] Ship switched:', this._ship);
+        this._bus.emit('ship:updated', this._ship);
+        break;
+      }
       case 'Loadout': {
         this._ship = {
           name: this._ship?.name ?? event.Ship ?? null,
@@ -61,6 +69,7 @@ export class ShipTracker {
           maxJumpRange: event.MaxJumpRange ?? null,
           cargoCapacity: event.CargoCapacity ?? null,
         };
+        console.log('[ShipTracker] Ship updated:', this._ship);
         this._bus.emit('ship:updated', this._ship);
         break;
       }
