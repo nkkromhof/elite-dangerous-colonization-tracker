@@ -55,6 +55,7 @@ const state = {
   pendingDeleteId: null,
   sessionErrors: [],
   editingCell: null,
+  collectionPhase: localStorage.getItem('ed-tracker-collection-phase') || 'collecting',
 };
 
 const elements = {
@@ -423,7 +424,7 @@ function renderTabs() {
   let allTabHtml = '';
   if (showAllTab) {
     const isActive = state.activeConstructionId === ALL_TAB_ID;
-    allTabHtml = `<div class="tab ${isActive ? 'active' : ''}" data-id="${ALL_TAB_ID}"><span>All</span></div>`;
+    allTabHtml = `<div class="tab ${isActive ? 'active' : ''}" data-id="${ALL_TAB_ID}"><span>Fleet Carrier</span></div>`;
   }
 
   const constructionTabsHtml = state.constructions.map(c => {
@@ -493,86 +494,158 @@ function renderAllTab() {
   }
 
   const commodities = [...commodityMap.values()];
-  commodities.sort((a, b) => {
-    const aFc = state.cargo.fc.find(c => c.name === a.name)?.count ?? 0;
-    const bFc = state.cargo.fc.find(c => c.name === b.name)?.count ?? 0;
-    const aNeedsDelivered = Math.max(0, a.amount_required - a.amount_delivered);
-    const bNeedsDelivered = Math.max(0, b.amount_required - b.amount_delivered);
-    const aDone = aNeedsDelivered === 0 || aFc >= aNeedsDelivered;
-    const bDone = bNeedsDelivered === 0 || bFc >= bNeedsDelivered;
-    if (aDone !== bDone) return aDone ? 1 : -1;
-    return b.amount_required - a.amount_required;
-  });
+  const delivering = state.collectionPhase === 'delivering';
 
-  const totals = {
-    total: commodities.reduce((s, c) => s + c.amount_required, 0),
-    remaining: commodities.reduce((s, c) => s + Math.max(0, c.amount_required - c.amount_delivered), 0),
-    carrier: state.cargo.fc.reduce((s, c) => {
-      const needed = commodityMap.get(c.name);
-      return s + (needed ? Math.min(c.count, Math.max(0, needed.amount_required - needed.amount_delivered)) : 0);
-    }, 0),
-    ship: state.cargo.ship.reduce((s, c) => {
-      const needed = commodityMap.get(c.name);
-      return s + (needed ? Math.min(c.count, Math.max(0, needed.amount_required - needed.amount_delivered)) : 0);
-    }, 0),
-  };
+  if (delivering) {
+    commodities.sort((a, b) => {
+      const aDone = a.amount_delivered >= a.amount_required;
+      const bDone = b.amount_delivered >= b.amount_required;
+      if (aDone !== bDone) return aDone ? 1 : -1;
+      return b.amount_required - a.amount_required;
+    });
+  } else {
+    commodities.sort((a, b) => {
+      const aFc = state.cargo.fc.find(c => c.name === a.name)?.count ?? 0;
+      const bFc = state.cargo.fc.find(c => c.name === b.name)?.count ?? 0;
+      const aShip = state.cargo.ship.find(c => c.name === a.name)?.count ?? 0;
+      const bShip = state.cargo.ship.find(c => c.name === b.name)?.count ?? 0;
+      const aNeedsDelivered = Math.max(0, a.amount_required - a.amount_delivered);
+      const bNeedsDelivered = Math.max(0, b.amount_required - b.amount_delivered);
+      const aDone = aNeedsDelivered === 0 || (aFc + aShip) >= aNeedsDelivered;
+      const bDone = bNeedsDelivered === 0 || (bFc + bShip) >= bNeedsDelivered;
+      if (aDone !== bDone) return aDone ? 1 : -1;
+      return b.amount_required - a.amount_required;
+    });
+  }
 
-  // Totals row: sum fc cargo and compute gap
-  const totalFc = state.cargo.fc.reduce((s, c) => {
-    return s + (commodityMap.has(c.name) ? c.count : 0);
-  }, 0);
-  const totalGap = commodities.reduce((s, c) => {
-    const fc = state.cargo.fc.find(i => i.name === c.name)?.count ?? 0;
-    return s + Math.max(0, c.amount_required - fc);
-  }, 0);
-
-  let html = `
-    <table class="commodity-table">
-      <thead>
-        <tr>
-          <th>NAME</th>
-          <th>TOTAL</th>
-          <th>CARRIER</th>
-          <th>REMAINING</th>
-          <th>SHIP</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr class="totals-row">
-          <td>Totals</td>
-          <td class="col-total">${totals.total}</td>
-          <td class="col-carrier">${totals.carrier}</td>
-          <td class="${totalGap > 0 ? 'col-remaining' : 'col-zero'}">${totalGap}</td>
-          <td class="col-ship">${totals.ship}</td>
-        </tr>
+  const phaseToggle = `
+    <div class="phase-toggle">
+      <button class="phase-btn ${!delivering ? 'active' : ''}" data-phase="collecting">Collecting</button>
+      <button class="phase-btn ${delivering ? 'active' : ''}" data-phase="delivering">Delivering</button>
+    </div>
   `;
 
-  commodities.forEach(c => {
-    const cargo = getCargoForCommodity(c.name);
-    const needsDelivered = Math.max(0, c.amount_required - c.amount_delivered);
-    const gap = c.amount_required - cargo.fc;
-    const done = needsDelivered === 0 || cargo.fc >= needsDelivered;
-    const gapDisplay = gap <= 0 ? (gap === 0 ? '✓' : `+${Math.abs(gap)}`) : gap;
-    const gapClass = gap <= 0 ? 'col-zero' : 'col-remaining';
-    html += `
-      <tr class="commodity-row ${done ? 'row-done' : ''}">
-        <td class="commodity-name">
-          ${c.name}
-          ${c.nearest_station ? `<span class="nearest-station copyable" data-copy="${c.nearest_system}">${c.nearest_station} · ${c.nearest_system}${c.nearest_supply != null ? ` · ${c.nearest_supply.toLocaleString()} supply` : ''}</span>` : ''}
-        </td>
-        <td class="col-total">${c.amount_required}</td>
-        <td class="${cargo.fc > 0 ? 'col-carrier' : 'col-zero'}">${cargo.fc > 0 ? cargo.fc : '—'}</td>
-        <td class="${gapClass}">${gapDisplay}</td>
-        <td class="${cargo.ship > 0 ? 'col-ship' : 'col-zero'}">${cargo.ship > 0 ? cargo.ship : '—'}</td>
-      </tr>
+  let html;
+
+  if (delivering) {
+    commodities.sort((a, b) => {
+      const aFc = state.cargo.fc.find(c => c.name === a.name)?.count ?? 0;
+      const bFc = state.cargo.fc.find(c => c.name === b.name)?.count ?? 0;
+      const aDone = aFc === 0;
+      const bDone = bFc === 0;
+      if (aDone !== bDone) return aDone ? 1 : -1;
+      return b.amount_required - a.amount_required;
+    });
+
+    const totalFc = state.cargo.fc.reduce((s, c) => s + (commodityMap.has(c.name) ? c.count : 0), 0);
+
+    html = `
+      ${phaseToggle}
+      <table class="commodity-table">
+        <thead>
+          <tr>
+            <th class="col-check"></th>
+            <th>NAME</th>
+            <th>CARRIER</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="totals-row">
+            <td></td>
+            <td>Totals</td>
+            <td class="${totalFc > 0 ? 'col-carrier' : 'col-zero'}">${totalFc > 0 ? totalFc : '—'}</td>
+          </tr>
     `;
-  });
+
+    commodities.forEach(c => {
+      const cargo = getCargoForCommodity(c.name);
+      const done = cargo.fc === 0;
+      html += `
+        <tr class="commodity-row ${done ? 'row-done' : ''}">
+          <td class="col-check">${done ? '✓' : ''}</td>
+          <td class="commodity-name">${c.name}</td>
+          <td>${done ? '' : cargo.fc > 0 ? `<span class="col-carrier">${cargo.fc}</span>` : '—'}</td>
+        </tr>
+      `;
+    });
+  } else {
+    const totals = {
+      total: commodities.reduce((s, c) => s + c.amount_required, 0),
+      carrier: state.cargo.fc.reduce((s, c) => {
+        const needed = commodityMap.get(c.name);
+        return s + (needed ? Math.min(c.count, Math.max(0, needed.amount_required - needed.amount_delivered)) : 0);
+      }, 0),
+      ship: state.cargo.ship.reduce((s, c) => {
+        const needed = commodityMap.get(c.name);
+        return s + (needed ? Math.min(c.count, Math.max(0, needed.amount_required - needed.amount_delivered)) : 0);
+      }, 0),
+    };
+
+    const totalGap = commodities.reduce((s, c) => {
+      const fc = state.cargo.fc.find(i => i.name === c.name)?.count ?? 0;
+      return s + Math.max(0, c.amount_required - fc);
+    }, 0);
+
+    html = `
+      ${phaseToggle}
+      <table class="commodity-table">
+        <thead>
+          <tr>
+            <th class="col-check"></th>
+            <th>NAME</th>
+            <th>TOTAL</th>
+            <th>CARRIER</th>
+            <th>REMAINING</th>
+            <th>SHIP</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="totals-row">
+            <td></td>
+            <td>Totals</td>
+            <td class="col-total">${totals.total}</td>
+            <td class="col-carrier">${totals.carrier}</td>
+            <td class="${totalGap > 0 ? 'col-remaining' : 'col-zero'}">${totalGap}</td>
+            <td class="col-ship">${totals.ship}</td>
+          </tr>
+    `;
+
+    commodities.forEach(c => {
+      const cargo = getCargoForCommodity(c.name);
+      const needsDelivered = Math.max(0, c.amount_required - c.amount_delivered);
+      const gap = c.amount_required - cargo.fc;
+      const done = needsDelivered === 0 || (cargo.fc + cargo.ship) >= needsDelivered;
+      const gapDisplay = gap <= 0 ? (gap === 0 ? '✓' : `+${Math.abs(gap)}`) : gap;
+      const gapClass = gap <= 0 ? 'col-zero' : 'col-remaining';
+      html += `
+        <tr class="commodity-row ${done ? 'row-done' : ''}">
+          <td class="col-check">${done ? '✓' : ''}</td>
+          <td class="commodity-name">
+            ${c.name}
+            ${!done && c.nearest_station ? `<span class="nearest-station copyable" data-copy="${c.nearest_system}">${c.nearest_station} · ${c.nearest_system}${c.nearest_supply != null ? ` · ${c.nearest_supply.toLocaleString()} supply` : ''}</span>` : ''}
+          </td>
+          <td>${done ? '' : `<span class="col-total">${c.amount_required}</span>`}</td>
+          <td>${done ? '' : cargo.fc > 0 ? `<span class="col-carrier">${cargo.fc}</span>` : '—'}</td>
+          <td>${done ? '' : `<span class="${gapClass}">${gapDisplay}</span>`}</td>
+          <td>${done ? '' : cargo.ship > 0 ? `<span class="col-ship">${cargo.ship}</span>` : '—'}</td>
+        </tr>
+      `;
+    });
+  }
 
   html += '</tbody></table>';
   elements.constructionCard.innerHTML = html;
 
   elements.constructionCard.querySelectorAll('.nearest-station.copyable').forEach(el => {
     el.addEventListener('click', () => copyToClipboard(el.dataset.copy));
+  });
+
+  elements.constructionCard.querySelectorAll('.phase-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.collectionPhase = btn.dataset.phase;
+      localStorage.setItem('ed-tracker-collection-phase', state.collectionPhase);
+      renderAllTab();
+    });
   });
 }
 
@@ -630,18 +703,20 @@ function renderConstructionCard() {
     <table class="commodity-table">
       <thead>
         <tr>
+          <th class="col-check"></th>
           <th>NAME</th>
-          <th>TOTAL</th>
           <th>REMAINING</th>
+          <th>TOTAL</th>
           <th>CARRIER</th>
           <th>SHIP</th>
         </tr>
       </thead>
       <tbody>
         <tr class="totals-row">
+          <td></td>
           <td>Totals${hasFailedLookups ? ' <button class="refresh-stations-btn" title="Retry failed Inara station lookups">Refresh stations</button>' : ''}</td>
-          <td class="col-total">${totals.total}</td>
           <td class="col-remaining">${totals.remaining}</td>
+          <td class="col-total">${totals.total}</td>
           <td class="col-carrier">${totals.carrier}</td>
           <td class="col-ship">${totals.ship}</td>
         </tr>
@@ -660,14 +735,15 @@ function renderConstructionCard() {
     const done = isCommodityComplete(c);
     html += `
       <tr class="commodity-row ${done ? 'row-done' : ''}">
+        <td class="col-check">${done ? '✓' : ''}</td>
         <td class="commodity-name">
           ${c.name}
-          ${c.nearest_station ? `<span class="nearest-station copyable" data-copy="${c.nearest_system}">${c.nearest_station} · ${c.nearest_system}${c.nearest_supply != null ? ` · ${c.nearest_supply.toLocaleString()} supply` : ''}</span>` : ''}
+          ${!done && remaining > 0 && (cargo.fc + cargo.ship) < remaining && c.nearest_station ? `<span class="nearest-station copyable" data-copy="${c.nearest_system}">${c.nearest_station} · ${c.nearest_system}${c.nearest_supply != null ? ` · ${c.nearest_supply.toLocaleString()} supply` : ''}</span>` : ''}
         </td>
-        <td class="col-total">${c.amount_required}</td>
-        <td class="${remaining > 0 ? 'col-remaining' : 'col-zero'}">${remaining}</td>
-        <td class="${cargo.fc > 0 ? 'col-carrier' : 'col-zero'}">${cargo.fc > 0 ? cargo.fc : '—'}</td>
-        <td class="${cargo.ship > 0 ? 'col-ship' : 'col-zero'}">${cargo.ship > 0 ? cargo.ship : '—'}</td>
+        <td>${done ? '' : `<span class="${remaining > 0 ? 'col-remaining' : 'col-zero'}">${remaining}</span>`}</td>
+        <td>${done ? '' : `<span class="col-total">${c.amount_required}</span>`}</td>
+        <td>${done ? '' : cargo.fc > 0 ? `<span class="col-carrier">${cargo.fc}</span>` : '—'}</td>
+        <td>${done ? '' : cargo.ship > 0 ? `<span class="col-ship">${cargo.ship}</span>` : '—'}</td>
       </tr>
     `;
   });
@@ -776,6 +852,7 @@ async function saveStepper() {
 function setupStepperListeners() {
   elements.constructionCard.addEventListener('click', (e) => {
     if (state.editingCell) return;
+    if (state.activeConstructionId !== ALL_TAB_ID) return;
     const td = e.target.closest('.col-carrier');
     if (!td) return;
 

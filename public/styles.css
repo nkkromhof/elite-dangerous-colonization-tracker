@@ -387,8 +387,8 @@ html, body {
 .col-carrier { color: var(--color-carrier); font-weight: 600; cursor: pointer; }
 .col-ship { color: var(--color-success); font-weight: 600; }
 .col-zero { color: #444; }
-.row-done { opacity: 0.35; }
-.row-done td { text-decoration: line-through; }
+.row-done .commodity-name { color: #555; }
+.col-check { color: var(--color-success); font-weight: 700; text-align: center; width: 2rem; padding-right: 0.25rem !important; }
 
 /* SYSTEM HEADER ROW */
 .system-header-row {
@@ -623,6 +623,39 @@ html, body {
   font-size: 0.75em;
   color: var(--color-text-muted);
   margin-top: 2px;
+}
+
+/* PHASE TOGGLE */
+.phase-toggle {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.phase-btn {
+  background: #252525;
+  border: 2px solid var(--color-border);
+  border-radius: 4px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.85em;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  padding: 0.6rem 1.5rem;
+  text-transform: uppercase;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.phase-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-text);
+}
+
+.phase-btn.active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
 }
 
 /* CARRIER STEPPER */
