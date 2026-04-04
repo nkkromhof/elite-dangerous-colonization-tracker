@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS constructions (
   market_id    INTEGER,
   phase        TEXT NOT NULL DEFAULT 'scanning',
   bound        INTEGER NOT NULL DEFAULT 0,
+  is_archived  INTEGER NOT NULL DEFAULT 0,
   created_at   TEXT NOT NULL,
   updated_at   TEXT NOT NULL
 );

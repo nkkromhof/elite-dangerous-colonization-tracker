@@ -15,7 +15,11 @@ export function getConstruction(id) {
 }
 
 export function getAllConstructions() {
-  return getDb().query('SELECT * FROM constructions ORDER BY created_at').all();
+  return getDb().query('SELECT * FROM constructions WHERE is_archived = 0 ORDER BY created_at').all();
+}
+
+export function getArchivedConstructions() {
+  return getDb().query('SELECT * FROM constructions WHERE is_archived = 1 ORDER BY updated_at DESC').all();
 }
 
 export function updateConstructionPhase(id, phase) {
@@ -25,6 +29,10 @@ export function updateConstructionPhase(id, phase) {
   );
 }
 
-export function deleteConstruction(id) {
-  getDb().run('DELETE FROM constructions WHERE id = ?', [id]);
+export function archiveConstruction(id) {
+  getDb().run('UPDATE constructions SET is_archived = 1, updated_at = ? WHERE id = ?', [now(), id]);
+}
+
+export function unarchiveConstruction(id) {
+  getDb().run('UPDATE constructions SET is_archived = 0, updated_at = ? WHERE id = ?', [now(), id]);
 }

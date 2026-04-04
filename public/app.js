@@ -16,6 +16,10 @@ const elements = {
   deleteModalText: document.getElementById('delete-modal-text'),
   deleteCancel: document.getElementById('delete-cancel'),
   deleteConfirm: document.getElementById('delete-confirm'),
+  archivedModal: document.getElementById('archived-modal'),
+  archivedList: document.getElementById('archived-list'),
+  archivedBtn: document.getElementById('archived-btn'),
+  archivedCloseBtn: document.getElementById('archived-close-btn'),
   copyToast: document.getElementById('copy-toast'),
   zoomOut: document.getElementById('zoom-out'),
   zoomIn: document.getElementById('zoom-in'),
@@ -121,6 +125,23 @@ function connectSSE() {
     state.ship = JSON.parse(e.data);
     renderShipBar();
   });
+  es.addEventListener('construction_archived', (e) => {
+    const data = JSON.parse(e.data);
+    const idx = state.constructions.findIndex(c => c.id === data.id);
+    if (idx >= 0) {
+      state.constructions.splice(idx, 1);
+      if (state.activeConstructionId === data.id) {
+        state.activeConstructionId = state.constructions[0]?.id || null;
+      }
+      render();
+    }
+  });
+  es.addEventListener('construction_unarchived', (e) => {
+    const data = JSON.parse(e.data);
+    state.constructions.push(data.construction);
+    state.constructions.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    render();
+  });
   es.addEventListener('app_error', (e) => {
     const error = JSON.parse(e.data);
     state.sessionErrors.unshift(error);
@@ -145,6 +166,11 @@ function setupEventListeners() {
   elements.deleteModal.addEventListener('click', (e) => {
     if (e.target === elements.deleteModal) closeDeleteModal();
   });
+  elements.archivedBtn.addEventListener('click', openArchivedModal);
+  elements.archivedCloseBtn.addEventListener('click', closeArchivedModal);
+  elements.archivedModal.addEventListener('click', (e) => {
+    if (e.target === elements.archivedModal) closeArchivedModal();
+  });
   elements.statusWidget.addEventListener('click', (e) => {
     e.stopPropagation();
     elements.statusDropdown.classList.toggle('visible');
@@ -162,7 +188,11 @@ function closeDeleteModal() {
 async function confirmDelete() {
   if (!state.pendingDeleteId) return;
   try {
-    await fetch(`/api/constructions/${state.pendingDeleteId}`, { method: 'DELETE' });
+    await fetch(`/api/constructions/${state.pendingDeleteId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ archived: true }),
+    });
     state.constructions = state.constructions.filter(c => c.id !== state.pendingDeleteId);
     if (state.activeConstructionId === state.pendingDeleteId) {
       state.activeConstructionId = state.constructions[0]?.id || null;
@@ -170,7 +200,7 @@ async function confirmDelete() {
     closeDeleteModal();
     render();
   } catch (err) {
-    console.error('Failed to delete:', err);
+    console.error('Failed to archive:', err);
   }
 }
 
@@ -178,8 +208,57 @@ function showDeleteModal(constructionId) {
   const construction = state.constructions.find(c => c.id === constructionId);
   if (!construction) return;
   state.pendingDeleteId = constructionId;
-  elements.deleteModalText.textContent = `This will remove "${construction.station_name}" and all its data.`;
+  elements.deleteModalText.textContent = `This will archive "${construction.station_name}". It will be removed from the primary view but can be restored later.`;
   elements.deleteModal.classList.add('visible');
+}
+
+async function openArchivedModal() {
+  try {
+    const res = await fetch('/api/constructions?include_archived=true');
+    const allConstructions = await res.json();
+    const archived = allConstructions.filter(c => c.is_archived);
+    if (archived.length === 0) {
+      elements.archivedList.innerHTML = '<p style="color:var(--color-text-muted);">No archived constructions</p>';
+    } else {
+      elements.archivedList.innerHTML = archived.map(c => `
+        <div class="archived-item">
+          <div class="archived-item-info">
+            <strong>${c.station_name}</strong>
+            <span>${c.system_name}</span>
+          </div>
+          <button class="unarchive-btn" data-id="${c.id}">Restore</button>
+        </div>
+      `).join('');
+      elements.archivedList.querySelectorAll('.unarchive-btn').forEach(btn => {
+        btn.addEventListener('click', () => unarchiveConstruction(btn.dataset.id));
+      });
+    }
+    elements.archivedModal.classList.add('visible');
+  } catch (err) {
+    console.error('Failed to load archived constructions:', err);
+  }
+}
+
+function closeArchivedModal() {
+  elements.archivedModal.classList.remove('visible');
+}
+
+async function unarchiveConstruction(id) {
+  try {
+    await fetch(`/api/constructions/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ archived: false }),
+    });
+    const res = await fetch(`/api/constructions/${id}`);
+    const construction = await res.json();
+    state.constructions.push(construction);
+    state.constructions.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    closeArchivedModal();
+    render();
+  } catch (err) {
+    console.error('Failed to unarchive:', err);
+  }
 }
 
 function copyToClipboard(text) {

@@ -66,6 +66,13 @@ function _migrateNearestStation(db) {
   }
 }
 
+function _migrateArchived(db) {
+  const cols = db.query('PRAGMA table_info(constructions)').all().map(r => r.name);
+  if (!cols.includes('is_archived')) {
+    db.run(`ALTER TABLE constructions ADD COLUMN is_archived INTEGER NOT NULL DEFAULT 0`);
+  }
+}
+
 function _migrateMarketCache(db) {
   db.run(`
     CREATE TABLE IF NOT EXISTS system_coordinates (
@@ -107,6 +114,7 @@ export function initDb(dbPath = ':memory:') {
   _db = new Database(dbPath, { create: true });
   _db.exec(SCHEMA_SQL);
   _migrateNearestStation(_db);
+  _migrateArchived(_db);
   _migrateMarketCache(_db);
   return _db;
 }

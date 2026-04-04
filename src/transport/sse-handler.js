@@ -10,6 +10,8 @@ const EVENT_MAP = {
   'journal:error':              'journal_error',
   'app:error':                  'app_error',
   'ship:updated':               'ship_updated',
+  'construction:archived':      'construction_archived',
+  'construction:unarchived':    'construction_unarchived',
 };
 
 export class SseHandler {

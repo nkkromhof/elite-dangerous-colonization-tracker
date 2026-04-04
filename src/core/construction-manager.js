@@ -2,8 +2,10 @@ import { randomUUID } from 'crypto';
 import {
   createConstruction,
   getAllConstructions,
+  getArchivedConstructions,
   getConstruction,
-  deleteConstruction,
+  archiveConstruction,
+  unarchiveConstruction,
 } from '../db/repositories/construction-repo.js';
 import {
   upsertCommoditySlot,
@@ -71,5 +73,24 @@ export class ConstructionManager {
     this._bus.emit('delivery:recorded', { construction_id, commodity_name, amount, source, slot });
   }
 
-  deleteConstruction(id) { deleteConstruction(id); }
+  archiveConstruction(id) {
+    const construction = getConstruction(id);
+    archiveConstruction(id);
+    if (construction?.market_id) this._marketIdIndex.delete(construction.market_id);
+    this._bus.emit('construction:archived', { id });
+  }
+
+  getArchivedConstructions() {
+    return getArchivedConstructions().map(c => ({
+      ...c,
+      commodities: getCommoditySlots(c.id),
+    }));
+  }
+
+  unarchiveConstruction(id) {
+    unarchiveConstruction(id);
+    const construction = getConstruction(id);
+    if (construction?.market_id) this._marketIdIndex.set(construction.market_id, id);
+    this._bus.emit('construction:unarchived', { id, construction });
+  }
 }

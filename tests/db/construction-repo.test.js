@@ -4,8 +4,9 @@ import {
   createConstruction,
   getConstruction,
   getAllConstructions,
+  getArchivedConstructions,
   updateConstructionPhase,
-  deleteConstruction,
+  archiveConstruction,
 } from '../../src/db/repositories/construction-repo.js';
 
 const sample = {
@@ -29,10 +30,30 @@ describe('construction-repo', () => {
     expect(row.phase).toBe('scanning');
   });
 
-  test('getAllConstructions returns all rows', () => {
+  test('getAllConstructions returns only non-archived rows', () => {
     createConstruction(sample);
     createConstruction({ ...sample, id: 'c2', station_name: 'Another Site' });
     expect(getAllConstructions()).toHaveLength(2);
+    archiveConstruction('c1');
+    expect(getAllConstructions()).toHaveLength(1);
+    expect(getAllConstructions()[0].id).toBe('c2');
+  });
+
+  test('archiveConstruction sets is_archived and retains data', () => {
+    createConstruction(sample);
+    archiveConstruction('c1');
+    const row = getConstruction('c1');
+    expect(row.is_archived).toBe(1);
+    expect(row.station_name).toBe('Sol Construction Site');
+  });
+
+  test('getArchivedConstructions returns only archived rows', () => {
+    createConstruction(sample);
+    createConstruction({ ...sample, id: 'c2', station_name: 'Another Site' });
+    archiveConstruction('c1');
+    const archived = getArchivedConstructions();
+    expect(archived).toHaveLength(1);
+    expect(archived[0].id).toBe('c1');
   });
 
   test('updateConstructionPhase changes phase', () => {
@@ -41,9 +62,5 @@ describe('construction-repo', () => {
     expect(getConstruction('c1').phase).toBe('collection');
   });
 
-  test('deleteConstruction removes the row', () => {
-    createConstruction(sample);
-    deleteConstruction('c1');
-    expect(getConstruction('c1')).toBeNull();
-  });
+
 });

@@ -16,6 +16,14 @@
         <button class="zoom-btn" id="zoom-in">+</button>
       </div>
       <div class="header-status">
+        <button class="archived-btn" id="archived-btn" title="Archived constructions">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="3" width="20" height="5" rx="1"/>
+            <path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/>
+            <line x1="10" y1="12" x2="10" y2="17"/>
+            <line x1="14" y1="12" x2="14" y2="17"/>
+          </svg>
+        </button>
         <div class="status-widget" id="status-widget">
           <div class="status-icon" id="status-icon">✓</div>
           <div class="status-count" id="status-count"></div>
@@ -61,11 +69,21 @@
 
     <div class="modal-overlay" id="delete-modal">
       <div class="delete-confirm">
-        <h3>Delete Construction?</h3>
-        <p id="delete-modal-text">This will remove the construction and all its data.</p>
+        <h3>Archive Construction?</h3>
+        <p id="delete-modal-text">This will archive the construction. It will be removed from the primary view but can be restored later.</p>
         <div class="delete-confirm-buttons">
           <button class="delete-confirm-btn cancel" id="delete-cancel">Cancel</button>
-          <button class="delete-confirm-btn confirm" id="delete-confirm">Delete</button>
+          <button class="delete-confirm-btn confirm" id="delete-confirm">Archive</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="archived-modal">
+      <div class="archived-panel">
+        <h3>Archived Constructions</h3>
+        <div id="archived-list"></div>
+        <div class="archived-close">
+          <button class="delete-confirm-btn cancel" id="archived-close-btn">Close</button>
         </div>
       </div>
     </div>

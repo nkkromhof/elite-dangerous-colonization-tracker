@@ -4,7 +4,8 @@ export function handleConstructions(req, { manager }) {
   const url = new URL(req.url);
 
   if (req.method === 'GET') {
-    const constructions = manager.getConstructions().map(c => ({
+    const includeArchived = url.searchParams.get('include_archived') === 'true';
+    const constructions = (includeArchived ? manager.getArchivedConstructions() : manager.getConstructions()).map(c => ({
       ...c,
       commodities: manager.getCommoditySlots(c.id),
     }));
@@ -29,8 +30,22 @@ export function handleConstruction(req, id, { manager }) {
   }
 
   if (req.method === 'DELETE') {
-    manager.deleteConstruction(id);
+    manager.archiveConstruction(id);
     return new Response(null, { status: 204 });
+  }
+
+  if (req.method === 'PATCH') {
+    return req.json().then(body => {
+      if (body.archived === false) {
+        manager.unarchiveConstruction(id);
+        return json(manager.getConstruction(id));
+      }
+      if (body.archived === true) {
+        manager.archiveConstruction(id);
+        return new Response(null, { status: 204 });
+      }
+      return notFound();
+    });
   }
 
   return notFound();
