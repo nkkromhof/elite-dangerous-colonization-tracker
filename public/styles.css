@@ -382,7 +382,7 @@ html, body {
 }
 
 .commodity-name { font-weight: 600; }
-.col-total { color: #fff; font-weight: 500; }
+.col-total { color: var(--color-text-muted); font-weight: 500; }
 .col-remaining { color: var(--color-remaining); font-weight: 700; }
 .col-carrier { color: var(--color-carrier); font-weight: 600; cursor: pointer; }
 .col-ship { color: var(--color-success); font-weight: 600; }

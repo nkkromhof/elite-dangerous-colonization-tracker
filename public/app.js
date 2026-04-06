@@ -51,7 +51,7 @@ const state = {
   constructions: [],
   cargo: { ship: [], fc: [] },
   ship: null,
-  activeConstructionId: null,
+  activeConstructionId: localStorage.getItem('ed-tracker-active-tab') || null,
   pendingDeleteId: null,
   sessionErrors: [],
   editingCell: null,
@@ -112,6 +112,7 @@ async function fetchState() {
     state.ship = data.ship || null;
     if (state.constructions.length > 0 && !state.activeConstructionId) {
       state.activeConstructionId = state.constructions[0].id;
+      localStorage.setItem('ed-tracker-active-tab', state.activeConstructionId);
     }
     render();
   } catch (err) {
@@ -140,6 +141,7 @@ function connectSSE() {
     const construction = JSON.parse(e.data);
     state.constructions.push(construction);
     state.activeConstructionId = construction.id;
+    localStorage.setItem('ed-tracker-active-tab', state.activeConstructionId);
     render();
   });
   es.addEventListener('commodity_updated', (e) => {
@@ -168,6 +170,7 @@ function connectSSE() {
       newIdx = safeIdx <= 0 ? tabIds.length - 1 : safeIdx - 1;
     }
     state.activeConstructionId = tabIds[newIdx];
+    localStorage.setItem('ed-tracker-active-tab', state.activeConstructionId);
     render();
   });
   es.addEventListener('ship_updated', (e) => {
@@ -181,6 +184,7 @@ function connectSSE() {
       state.constructions.splice(idx, 1);
       if (state.activeConstructionId === data.id) {
         state.activeConstructionId = state.constructions[0]?.id || null;
+        localStorage.setItem('ed-tracker-active-tab', state.activeConstructionId);
       }
       render();
     }
@@ -245,6 +249,7 @@ async function confirmDelete() {
     state.constructions = state.constructions.filter(c => c.id !== state.pendingDeleteId);
     if (state.activeConstructionId === state.pendingDeleteId) {
       state.activeConstructionId = state.constructions[0]?.id || null;
+      localStorage.setItem('ed-tracker-active-tab', state.activeConstructionId);
     }
     closeDeleteModal();
     render();
@@ -440,6 +445,7 @@ function renderTabs() {
     tab.addEventListener('click', (e) => {
       if (e.target.classList.contains('tab-delete')) return;
       state.activeConstructionId = tab.dataset.id;
+      localStorage.setItem('ed-tracker-active-tab', state.activeConstructionId);
       render();
     });
   });
