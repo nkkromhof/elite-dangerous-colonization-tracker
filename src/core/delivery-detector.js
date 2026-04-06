@@ -15,7 +15,7 @@ export class DeliveryDetector {
   _handle(e) {
     switch (e.event) {
       case 'Docked': {
-        if (e.StationType !== 'SpaceConstructionDepot') return;
+        if (e.StationType !== 'SpaceConstructionDepot' && e.StationType !== 'PlanetaryConstructionDepot') return;
         this._manager.getOrCreateByMarketId({
           market_id: e.MarketID,
           system_name: e.StarSystem,

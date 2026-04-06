@@ -325,7 +325,7 @@ function getActiveConstructions() {
 
 function getTabIds() {
   const active = getActiveConstructions();
-  const ids = active.length >= 2 ? [ALL_TAB_ID] : [];
+  const ids = [ALL_TAB_ID];
   return ids.concat(state.constructions.map(c => c.id));
 }
 
@@ -414,18 +414,8 @@ function parseStationName(name) {
 
 function renderTabs() {
   const activeConstructions = getActiveConstructions();
-  const showAllTab = activeConstructions.length >= 2;
-
-  // If "All" tab is selected but no longer applicable, fall back to first construction
-  if (state.activeConstructionId === ALL_TAB_ID && !showAllTab) {
-    state.activeConstructionId = state.constructions[0]?.id || null;
-  }
-
-  let allTabHtml = '';
-  if (showAllTab) {
-    const isActive = state.activeConstructionId === ALL_TAB_ID;
-    allTabHtml = `<div class="tab ${isActive ? 'active' : ''}" data-id="${ALL_TAB_ID}"><span>Fleet Carrier</span></div>`;
-  }
+  const isAllTabActive = state.activeConstructionId === ALL_TAB_ID;
+  const allTabHtml = `<div class="tab ${isAllTabActive ? 'active' : ''}" data-id="${ALL_TAB_ID}"><span>Fleet Carrier</span></div>`;
 
   const constructionTabsHtml = state.constructions.map(c => {
     const isActive = c.id === state.activeConstructionId;
@@ -583,7 +573,8 @@ function renderAllTab() {
 
     const totalGap = commodities.reduce((s, c) => {
       const fc = state.cargo.fc.find(i => i.name === c.name)?.count ?? 0;
-      return s + Math.max(0, c.amount_required - fc);
+      const ship = state.cargo.ship.find(i => i.name === c.name)?.count ?? 0;
+      return s + Math.max(0, c.amount_required - fc - ship);
     }, 0);
 
     html = `
@@ -613,7 +604,7 @@ function renderAllTab() {
     commodities.forEach(c => {
       const cargo = getCargoForCommodity(c.name);
       const needsDelivered = Math.max(0, c.amount_required - c.amount_delivered);
-      const gap = c.amount_required - cargo.fc;
+      const gap = c.amount_required - cargo.fc - cargo.ship;
       const done = needsDelivered === 0 || (cargo.fc + cargo.ship) >= needsDelivered;
       const gapDisplay = gap <= 0 ? (gap === 0 ? '✓' : `+${Math.abs(gap)}`) : gap;
       const gapClass = gap <= 0 ? 'col-zero' : 'col-remaining';
@@ -655,7 +646,7 @@ async function refreshStations(constructionId) {
     const data = await res.json();
     const msg = data.queued > 0
       ? `Queued ${data.queued} station lookup${data.queued !== 1 ? 's' : ''}`
-      : 'No failed lookups to retry';
+      : 'No pending lookups to queue';
     elements.copyToast.textContent = msg;
     elements.copyToast.classList.add('visible');
     setTimeout(() => {
@@ -682,9 +673,7 @@ function renderConstructionCard() {
   const isComplete = construction.phase === 'done' || construction.commodities.every(isCommodityComplete);
   elements.constructionCard.className = `construction-card ${isComplete ? 'completed' : ''}`;
 
-  const hasFailedLookups = construction.commodities.some(
-    c => !isCommodityComplete(c) && c.nearest_queried_at && !c.nearest_station
-  );
+  const hasIncompleteCommodities = construction.commodities.some(c => !isCommodityComplete(c));
 
   const totals = {
     total: construction.commodities.reduce((s, c) => s + c.amount_required, 0),
@@ -714,7 +703,7 @@ function renderConstructionCard() {
       <tbody>
         <tr class="totals-row">
           <td></td>
-          <td>Totals${hasFailedLookups ? ' <button class="refresh-stations-btn" title="Retry failed Inara station lookups">Refresh stations</button>' : ''}</td>
+          <td>Totals${hasIncompleteCommodities ? ' <button class="refresh-stations-btn" title="Re-search all station lookups">Refresh stations</button>' : ''}</td>
           <td class="col-remaining">${totals.remaining}</td>
           <td class="col-total">${totals.total}</td>
           <td class="col-carrier">${totals.carrier}</td>

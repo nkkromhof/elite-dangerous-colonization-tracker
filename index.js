@@ -70,7 +70,7 @@ cargoTracker.setShipCargo(readCargo());
 
 new DeliveryDetector(eventBus, constructionManager);
 new MarketTracker(eventBus, config.journalDir);
-const stationLookupService = new StationLookupService(eventBus, constructionManager);
+const stationLookupService = new StationLookupService(eventBus, constructionManager, cargoTracker);
 
 eventBus.on('journal:cargo_changed', () => cargoTracker.setShipCargo(readCargo()));
 eventBus.on('journal:event', (e) => {

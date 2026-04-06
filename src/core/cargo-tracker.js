@@ -13,6 +13,7 @@ export class CargoTracker {
     this._ship = (initial.ship ?? []).map(i => ({ ...i, name: normalizeSavedName(i.name) }));
     this._fc   = (initial.fc   ?? []).map(i => ({ ...i, name: normalizeSavedName(i.name) }));
     this._fcMarketId = null;
+    this._fcStationName = null;
     this._skipFcJournalUpdates = false;
 
     eventBus.on('journal:event', (e) => this._handle(e));
@@ -51,7 +52,10 @@ export class CargoTracker {
   _handle(e) {
     switch (e.event) {
       case 'Docked':
-        if (e.StationType === 'FleetCarrier') this._fcMarketId = e.MarketID;
+        if (e.StationType === 'FleetCarrier') {
+          this._fcMarketId = e.MarketID;
+          this._fcStationName = e.StationName ?? null;
+        }
         return;
       case 'MarketSell':
         if (this._skipFcJournalUpdates) return;
@@ -121,5 +125,6 @@ export class CargoTracker {
 
   getShipCargo() { return [...this._ship]; }
   getFcCargo()   { return [...this._fc]; }
-  getFcMarketId() { return this._fcMarketId; }
+  getFcMarketId()    { return this._fcMarketId; }
+  getFcStationName() { return this._fcStationName; }
 }

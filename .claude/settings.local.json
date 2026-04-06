@@ -11,7 +11,8 @@
       "Bash(bun -e \":*)",
       "Bash(bun run --bun -e \":*)",
       "Bash(bun -e \"import ''./src/db/database.js''; import ''./src/core/station-lookup-service.js''; import ''./src/db/repositories/market-cache-repo.js''; console.log\\(''All imports resolved successfully''\\);\")",
-      "Bash(bun test:*)"
+      "Bash(bun test:*)",
+      "Bash(grep -r \"station_type\\\\|StationType\" C:UsersniekkDesktopelite-dangerous-colonization-tracker-main --include=*.js --include=*.jsx --include=*.html --include=*.md --include=*.sql)"
     ]
   }
 }

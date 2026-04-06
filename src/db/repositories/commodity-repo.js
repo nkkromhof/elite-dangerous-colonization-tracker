@@ -69,6 +69,13 @@ export function clearFailedStationLookups(constructionId) {
   );
 }
 
+export function clearAllStationLookups(constructionId) {
+  getDb().run(
+    `UPDATE commodity_slots SET nearest_queried_at = NULL, nearest_station = NULL, nearest_system = NULL, nearest_supply = NULL WHERE construction_id = ?`,
+    [constructionId]
+  );
+}
+
 export function recordDelivery({ id, construction_id, commodity_name, amount, source }) {
   getDb().run(
     `INSERT INTO deliveries (id, construction_id, commodity_name, amount, source, delivered_at)

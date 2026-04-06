@@ -1,5 +1,5 @@
 import { lookupNearestStation } from './inara-lookup.js';
-import { updateNearestStation, getCommoditySlot, clearFailedStationLookups } from '../db/repositories/commodity-repo.js';
+import { updateNearestStation, getCommoditySlot, clearFailedStationLookups, clearAllStationLookups } from '../db/repositories/commodity-repo.js';
 import { findCachedStationsForCommodity, getSystemCoordinates } from '../db/repositories/market-cache-repo.js';
 import { emitError } from './event-bus.js';
 import { logger } from './logger.js';
@@ -17,10 +17,12 @@ export class StationLookupService {
   /**
    * @param {import('events').EventEmitter} bus
    * @param {import('./construction-manager.js').ConstructionManager} manager
+   * @param {import('./cargo-tracker.js').CargoTracker} cargoTracker
    */
-  constructor(bus, manager) {
+  constructor(bus, manager, cargoTracker) {
     this._bus = bus;
     this._manager = manager;
+    this._cargoTracker = cargoTracker;
     this._queue = [];
     this._processing = false;
 
@@ -64,6 +66,25 @@ export class StationLookupService {
       }
     }
     logger.info(TAG, `Refreshing ${queued} failed lookups for construction ${constructionId}`);
+    return queued;
+  }
+
+  /**
+   * Force-reset ALL station lookups for a construction (including previously successful ones)
+   * and re-queue them all.
+   */
+  forceRefreshConstruction(constructionId) {
+    clearAllStationLookups(constructionId);
+    this._resultCache.clear();
+    let queued = 0;
+    for (const slot of this._manager.getCommoditySlots(constructionId)) {
+      const fresh = getCommoditySlot(constructionId, slot.name);
+      if (fresh && this._needsLookup(fresh)) {
+        this._enqueue(constructionId, fresh);
+        queued++;
+      }
+    }
+    logger.info(TAG, `Force-refreshing ${queued} station lookups for construction ${constructionId}`);
     return queued;
   }
 
@@ -132,7 +153,7 @@ export class StationLookupService {
         }
 
         // Check local market cache (station_market_cache via indexed query)
-        const marketHit = this._checkCache(group.nameInternal, group.referenceSystem);
+        const marketHit = this._checkCache(group.nameInternal, group.referenceSystem, this._cargoTracker?.getFcMarketId() ?? null);
         if (marketHit) {
           this._fanOut(group.targets, marketHit.station, marketHit.system, marketHit.supply, cachedAt);
           this._setResultCache(key, marketHit.station, marketHit.system, marketHit.supply, cachedAt);
@@ -202,12 +223,12 @@ export class StationLookupService {
    * Check local market cache for a single commodity relative to a construction system.
    * Returns a result object or null if no hit.
    */
-  _checkCache(nameInternal, systemName) {
+  _checkCache(nameInternal, systemName, excludeMarketId = null) {
     const coords = getSystemCoordinates(systemName);
     if (!coords) return null;
 
     const hits = findCachedStationsForCommodity(
-      nameInternal, CACHE_MAX_AGE_DAYS, coords.x, coords.y, coords.z
+      nameInternal, CACHE_MAX_AGE_DAYS, coords.x, coords.y, coords.z, excludeMarketId
     );
     const hit = hits.find(h => h.distanceLy <= INARA_SEARCH_RANGE);
     if (!hit) return null;
@@ -233,6 +254,13 @@ export class StationLookupService {
       emitError(TAG, `No station found for ${nameInternal} within 500ly of ${referenceSystem}`);
     } else if (!data && transient) {
       logger.warn(TAG, `Still failing after retry for ${nameInternal} — will retry next run`);
+    }
+
+    // Discard the result if Inara returned the player's own fleet carrier
+    const ownCarrierName = this._cargoTracker?.getFcStationName() ?? null;
+    if (data && ownCarrierName && data.station === ownCarrierName) {
+      logger.info(TAG, `Ignoring own carrier "${ownCarrierName}" returned by Inara for ${nameInternal}`);
+      data = null;
     }
 
     const station  = data?.station ?? null;

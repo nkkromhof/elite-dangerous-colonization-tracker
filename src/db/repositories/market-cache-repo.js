@@ -67,9 +67,10 @@ export function upsertStationMarket({ marketId, stationName, stationType, system
  * @param {number} tx  target x coordinate
  * @param {number} ty  target y coordinate
  * @param {number} tz  target z coordinate
+ * @param {number|null} [excludeMarketId]  market ID to exclude (e.g. player's own carrier)
  * @returns {{ marketId, stationName, stationType, systemName, stock, distanceLy, recordedAt }[]}
  */
-export function findCachedStationsForCommodity(nameInternal, maxAgeDays, tx, ty, tz) {
+export function findCachedStationsForCommodity(nameInternal, maxAgeDays, tx, ty, tz, excludeMarketId = null) {
   const cutoff = new Date(Date.now() - maxAgeDays * 24 * 60 * 60 * 1000).toISOString();
   const rows = getDb().query(
     `SELECT s.market_id, s.station_name, s.station_type, s.system_name,
@@ -79,8 +80,10 @@ export function findCachedStationsForCommodity(nameInternal, maxAgeDays, tx, ty,
      WHERE i.name_internal = ?
        AND i.stock > 0
        AND s.recorded_at > ?
-       AND s.x IS NOT NULL`
-  ).all(nameInternal, cutoff);
+       AND s.x IS NOT NULL
+       AND (s.station_type IS NULL OR s.station_type != 'FleetCarrier')
+       ${excludeMarketId != null ? 'AND s.market_id != ?' : ''}`
+  ).all(...[nameInternal, cutoff, ...(excludeMarketId != null ? [excludeMarketId] : [])]);
 
   const results = rows.map(row => {
     const dx = row.x - tx, dy = row.y - ty, dz = row.z - tz;

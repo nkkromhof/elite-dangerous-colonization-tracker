@@ -75,7 +75,7 @@ export function handleCommodities(req, constructionId, { manager }) {
 
 export function handleRefreshStations(req, constructionId, { stationLookupService }) {
   if (req.method !== 'POST') return notFound();
-  const queued = stationLookupService.refreshConstruction(constructionId);
+  const queued = stationLookupService.forceRefreshConstruction(constructionId);
   return json({ queued });
 }
 
