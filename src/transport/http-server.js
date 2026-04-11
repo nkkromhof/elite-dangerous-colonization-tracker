@@ -55,16 +55,18 @@ export function startHttpServer(deps, port) {
       // Cargo update
       if (path === '/api/cargo/fc') return handleCargoUpdate(req, deps);
 
-      // Serve static files from public/
+      // Serve static files from public/dist/ (Vite build output) with public/ fallback
       if (path === '/' || !path.startsWith('/api')) {
         const filePath = path === '/' ? '/index.html' : path;
-        const file = Bun.file('./public' + filePath);
-        const exists = await file.exists();
-        if (exists) {
-          const contentType = filePath.endsWith('.css') ? 'text/css' :
-                              filePath.endsWith('.js') ? 'application/javascript' :
-                              'text/html';
-          return new Response(file, { headers: { 'Content-Type': contentType } });
+        // Try dist first (Vite build), then public root (for shared files like inara-commodity-ids.js)
+        for (const dir of ['./public/dist', './public']) {
+          const file = Bun.file(dir + filePath);
+          if (await file.exists()) {
+            const contentType = filePath.endsWith('.css') ? 'text/css' :
+                                filePath.endsWith('.js') ? 'application/javascript' :
+                                'text/html';
+            return new Response(file, { headers: { 'Content-Type': contentType } });
+          }
         }
       }
       return new Response('Not Found', { status: 404 });
