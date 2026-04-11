@@ -11,6 +11,12 @@ bun run index.js
 # Test
 bun test
 
+# Frontend dev (with hot reload)
+bun run dev:frontend
+
+# Frontend production build
+bun run build:frontend
+
 # Build (Windows exe)
 bun build --compile --target=bun-windows-x64 ./index.js --outfile tracker.exe
 ```
@@ -41,6 +47,27 @@ ED Journal Dir
                                                          SseHandler ──► Browser
                                                                 │
                                                          HTTP API ◄── Browser
+```
+
+### Frontend Architecture
+
+```
+src/frontend/
+  main.js ──► App.svelte
+                ├── Header.svelte (zoom, theme, status)
+                ├── ShipBar.svelte (ship stats)
+                ├── TabBar.svelte (construction tabs)
+                └── AllTab.svelte / ConstructionTab.svelte
+                     └── CommodityTable + CommodityRow components
+
+  lib/stores/
+    sse.svelte.js ──► dispatches to:
+      ├── constructions.svelte.js (construction state + aggregation)
+      ├── cargo.svelte.js (ship + FC cargo)
+      ├── ship.svelte.js (current ship)
+      ├── station.svelte.js (docked station)
+      ├── errors.svelte.js (session errors)
+      └── ui.svelte.js (zoom, theme, phase)
 ```
 
 The entire application is event-driven. `JournalWatcher` watches the ED journal directory with chokidar, parses new JSON lines from journal files, and emits them as `journal:event` on the shared `EventBus` (a Node.js `EventEmitter`). Every core module subscribes to events it cares about and emits its own events in turn. The `SseHandler` maps internal bus events to SSE event types and pushes them to connected browser clients.
@@ -123,8 +150,11 @@ Maps internal EventBus events to SSE event types (e.g., `cargo:updated` becomes 
 ### `src/transport/routes/`
 Route handlers organized by domain: `constructions.js`, `phase.js`, `cargo.js`, `hotkey.js`, `state.js`. Each exports handler functions that receive the request, extract params, call into the appropriate manager/service, and return a `Response`.
 
+### `src/frontend/`
+Svelte 5 frontend. Source compiled by Vite to `public/dist/`. Connects to `/api/events` for SSE updates and calls the REST API for mutations. State managed by reactive stores (`lib/stores/*.svelte.js`); UI composed from components (`lib/components/`). See `DESIGN.md` for frontend design authority.
+
 ### `public/`
-Vanilla JS frontend. `index.html`, `app.js`, `styles.css`. Connects to `/api/events` for SSE updates and calls the REST API for mutations. See `DESIGN.md` for frontend design authority.
+Static assets served by the backend. `public/dist/` contains the Vite build output. `public/inara-commodity-ids.js` is shared between frontend and backend.
 
 ## Database Conventions
 
@@ -191,9 +221,22 @@ tests/
 - Event emission (subscribe before acting, capture in a variable)
 - Idempotency where relevant (e.g., getOrCreateByMarketId)
 
+### Frontend Testing
+
+Frontend stores and utilities follow the same `bun test` workflow as backend tests.
+
+**Test location:** `tests/frontend/stores/` and `tests/frontend/utils/`
+
+**Requirements:**
+- When modifying frontend stores or utilities, run the relevant tests before committing
+- When adding new store logic or utility functions, write corresponding tests
+- Tests are not required for `.svelte` component files (declarative templates), but are required for JavaScript logic in stores and utilities that drives application behavior
+- Store tests import functions directly from `.svelte.js` files and assert on state mutations
+- Utility tests are pure function tests -- no DOM or framework setup needed
+
 ## Code Style
 
-- **No frameworks.** Vanilla JS everywhere. No TypeScript, no React, no Express.
+- **Svelte 5 frontend.** Frontend uses Svelte 5 with Vite. Source in `src/frontend/`, builds to `public/dist/`. Backend remains vanilla JS with Bun-first APIs -- no frameworks on the backend.
 - **ESM imports** (`import`/`export`), never CommonJS `require()`.
 - **Bun-first APIs.** Use `Bun.serve`, `bun:sqlite`, `bun:test`. Avoid Node-specific alternatives where Bun provides its own.
 - **Classes for stateful modules** (CargoTracker, JournalWatcher, etc.), **plain exported functions for stateless logic** (repositories, commodity-name, one-stop-analyzer).
