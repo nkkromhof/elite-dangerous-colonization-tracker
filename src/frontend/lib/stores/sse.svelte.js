@@ -9,6 +9,7 @@ import {
   restoreConstruction,
   updateDelivery,
   updateCommodity,
+  removeCommodity,
   navigateTab,
 } from './constructions.svelte.js';
 import { fetchState } from '../utils/api.js';
@@ -78,6 +79,11 @@ export function connect() {
   source.addEventListener('commodity_updated', (e) => {
     const data = JSON.parse(e.data);
     updateCommodity(data.constructionId, data.slot);
+  });
+
+  source.addEventListener('commodity_removed', (e) => {
+    const data = JSON.parse(e.data);
+    removeCommodity(data.constructionId, data.name);
   });
 
   // Tab navigation (from hotkey)

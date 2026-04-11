@@ -1,14 +1,32 @@
 <script>
-  import { getConstructions, getActiveId, setActiveId, ALL_TAB_ID } from '../../stores/constructions.svelte.js';
+  import { getConstructions, getActiveId, setActiveId, ALL_TAB_ID, addConstruction } from '../../stores/constructions.svelte.js';
   import { getCollectionPhase } from '../../stores/ui.svelte.js';
   import { isCommodityComplete, parseStationName, formatStationType } from '../../utils/format.js';
+  import { createConstruction } from '../../utils/api.js';
 
   let { onDelete } = $props();
 
   let phaseLabel = $derived(getCollectionPhase() === 'delivering' ? 'Delivering' : 'Collecting');
+  let creating = $state(false);
+  let newName = $state('');
 
   function isComplete(c) {
     return c.phase === 'done' || (c.commodities.length > 0 && c.commodities.every(isCommodityComplete));
+  }
+
+  async function handleCreate() {
+    const name = newName.trim();
+    if (!name) return;
+    const construction = await createConstruction({ station_name: name });
+    construction.commodities = construction.commodities || [];
+    addConstruction(construction);
+    creating = false;
+    newName = '';
+  }
+
+  function handleKeydown(e) {
+    if (e.key === 'Enter') handleCreate();
+    if (e.key === 'Escape') { creating = false; newName = ''; }
   }
 </script>
 
@@ -33,7 +51,12 @@
       onclick={() => setActiveId(c.id)}
     >
       <div class="tab-content">
-        <span class="tab-name">{parseStationName(c.station_name)}</span>
+        <span class="tab-name">
+          {#if c.type === 'manual'}
+            <span class="manual-icon" title="Manual site">✎</span>
+          {/if}
+          {parseStationName(c.station_name)}
+        </span>
         {#if formatStationType(c.station_type)}
           <span class="tab-type">{formatStationType(c.station_type)}</span>
         {/if}
@@ -45,6 +68,23 @@
       <span class="tab-delete" role="button" tabindex="0" onclick={(e) => { e.stopPropagation(); onDelete?.(c.id); }}>×</span>
     </button>
   {/each}
+
+  {#if creating}
+    <div class="tab-create-form">
+      <!-- svelte-ignore a11y_autofocus -->
+      <input
+        class="tab-create-input"
+        bind:value={newName}
+        onkeydown={handleKeydown}
+        placeholder="Site name…"
+        autofocus
+      />
+      <button class="tab-create-confirm" onclick={handleCreate} disabled={!newName.trim()}>✓</button>
+      <button class="tab-create-cancel" onclick={() => { creating = false; newName = ''; }}>×</button>
+    </div>
+  {:else}
+    <button class="tab tab-add" onclick={() => { creating = true; }} title="Add manual site">+</button>
+  {/if}
 </div>
 
 <style>
@@ -55,6 +95,7 @@
     border-bottom: 1px solid var(--color-border);
     overflow-x: auto;
     flex-shrink: 0;
+    align-items: center;
   }
 
   .tab {
@@ -87,6 +128,20 @@
     opacity: 0.6;
   }
 
+  .tab-add {
+    font-size: 1.25rem;
+    font-weight: 300;
+    padding: var(--space-sm) var(--space-xl);
+    opacity: 0.5;
+    flex-shrink: 0;
+  }
+
+  .tab-add:hover {
+    opacity: 1;
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
+
   .tab-content {
     display: flex;
     flex-direction: column;
@@ -97,6 +152,12 @@
   .tab-name {
     font-weight: 600;
     font-size: 0.875rem;
+  }
+
+  .manual-icon {
+    font-size: 0.75rem;
+    opacity: 0.6;
+    margin-right: 2px;
   }
 
   .tab-type {
@@ -122,6 +183,52 @@
 
   .tab-delete:hover {
     opacity: 1;
+    color: var(--color-danger);
+  }
+
+  .tab-create-form {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    flex-shrink: 0;
+  }
+
+  .tab-create-input {
+    padding: var(--space-sm) var(--space-lg);
+    background: var(--color-bg-subtle);
+    border: 1px solid var(--color-primary);
+    border-radius: var(--radius-micro);
+    font-size: 0.875rem;
+    font-family: inherit;
+    color: var(--color-text-primary);
+    width: 160px;
+    outline: none;
+  }
+
+  .tab-create-confirm,
+  .tab-create-cancel {
+    background: none;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-micro);
+    cursor: pointer;
+    font-size: 0.875rem;
+    padding: var(--space-sm) var(--space-md);
+    color: var(--color-text-secondary);
+    font-family: inherit;
+  }
+
+  .tab-create-confirm:hover:not(:disabled) {
+    border-color: var(--color-success);
+    color: var(--color-success);
+  }
+
+  .tab-create-confirm:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .tab-create-cancel:hover {
+    border-color: var(--color-danger);
     color: var(--color-danger);
   }
 </style>

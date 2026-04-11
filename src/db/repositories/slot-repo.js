@@ -112,3 +112,10 @@ export function clearLookupCacheAll(constructionId) {
     [constructionId]
   );
 }
+
+export function deleteCommoditySlot(constructionId, name) {
+  getDb().run(
+    'DELETE FROM commodity_slots WHERE construction_id = ? AND name = ?',
+    [constructionId, name]
+  );
+}

@@ -70,6 +70,11 @@ export function handleCommodities(req, constructionId, { manager }) {
     });
   }
 
+  if (req.method === 'DELETE') {
+    manager.removeCommodity(constructionId, decodeURIComponent(commodityName));
+    return new Response(null, { status: 204 });
+  }
+
   return notFound();
 }
 

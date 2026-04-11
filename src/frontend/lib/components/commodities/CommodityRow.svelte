@@ -15,7 +15,7 @@
    *   allowStepper?: boolean
    * }}
    */
-  let { commodity, mode, stationGroups = new Map(), activeConstructions = [], allowStepper = false } = $props();
+  let { commodity, mode, stationGroups = new Map(), activeConstructions = [], allowStepper = false, onRemove = null } = $props();
 
   let done = $derived(isCommodityComplete(commodity));
   let available = $derived(!done && isAvailableAtStation(commodity.name));
@@ -116,6 +116,12 @@
     </td>
     <td>{done ? '' : (cargo.ship > 0 ? cargo.ship : '—')}</td>
   {/if}
+  {#if onRemove}
+    <td class="col-remove">
+      <!-- svelte-ignore a11y_click_events_have_key_events -->
+      <span class="remove-btn" role="button" tabindex="0" onclick={() => onRemove(commodity.name)}>×</span>
+    </td>
+  {/if}
 </tr>
 
 <style>
@@ -168,5 +174,22 @@
     font-size: 0.9375rem;
     border-bottom: 1px solid var(--color-border);
     white-space: nowrap;
+  }
+
+  .col-remove {
+    width: 2rem;
+    text-align: center;
+  }
+
+  .remove-btn {
+    font-size: 1rem;
+    opacity: 0.3;
+    cursor: pointer;
+    padding: 0 var(--space-sm);
+  }
+
+  .remove-btn:hover {
+    opacity: 1;
+    color: var(--color-danger);
   }
 </style>

@@ -46,6 +46,10 @@ export function setActiveId(id) {
 }
 
 export function addConstruction(construction) {
+  if (constructions.some(c => c.id === construction.id)) {
+    setActiveId(construction.id);
+    return;
+  }
   constructions.push(construction);
   setActiveId(construction.id);
 }
@@ -84,6 +88,12 @@ export function updateCommodity(constructionId, slot) {
   } else {
     construction.commodities.push(slot);
   }
+}
+
+export function removeCommodity(constructionId, name) {
+  const construction = constructions.find(c => c.id === constructionId);
+  if (!construction) return;
+  construction.commodities = construction.commodities.filter(c => c.name !== name);
 }
 
 /**

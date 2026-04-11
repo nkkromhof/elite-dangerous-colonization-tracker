@@ -31,13 +31,14 @@ CREATE TABLE IF NOT EXISTS _schema_version (
 
 CREATE TABLE IF NOT EXISTS constructions (
   id           TEXT PRIMARY KEY,
-  system_name  TEXT NOT NULL,
+  system_name  TEXT,
   station_name TEXT NOT NULL,
   station_type TEXT,
   market_id    INTEGER,
   phase        TEXT NOT NULL DEFAULT 'scanning',
   bound        INTEGER NOT NULL DEFAULT 0,
   is_archived  INTEGER NOT NULL DEFAULT 0,
+  type         TEXT NOT NULL DEFAULT 'auto',
   created_at   TEXT NOT NULL,
   updated_at   TEXT NOT NULL
 );
@@ -137,7 +138,7 @@ CREATE TABLE IF NOT EXISTS commodity_station_results (
 CREATE INDEX IF NOT EXISTS idx_csr_lookup ON commodity_station_results (name_internal, reference_system, distance_ly);
 `;
 
-const CURRENT_VERSION = 10;
+const CURRENT_VERSION = 11;
 
 // ── Legacy Migrations ───────────────────────────────────────────────────────
 // These run only when upgrading an existing database from a previous version.
@@ -286,6 +287,35 @@ const MIGRATIONS = [
       }
     }
   },
+
+  // v10 → v11: Add type column; make system_name nullable (requires table recreation in SQLite)
+  function v11_manualConstructions(db) {
+    db.run('PRAGMA foreign_keys = OFF');
+    db.run(`
+      CREATE TABLE constructions_new (
+        id           TEXT PRIMARY KEY,
+        system_name  TEXT,
+        station_name TEXT NOT NULL,
+        station_type TEXT,
+        market_id    INTEGER,
+        phase        TEXT NOT NULL DEFAULT 'scanning',
+        bound        INTEGER NOT NULL DEFAULT 0,
+        is_archived  INTEGER NOT NULL DEFAULT 0,
+        type         TEXT NOT NULL DEFAULT 'auto',
+        created_at   TEXT NOT NULL,
+        updated_at   TEXT NOT NULL
+      )
+    `);
+    db.run(`
+      INSERT INTO constructions_new
+      SELECT id, system_name, station_name, station_type, market_id,
+             phase, bound, is_archived, 'auto', created_at, updated_at
+      FROM constructions
+    `);
+    db.run('DROP TABLE constructions');
+    db.run('ALTER TABLE constructions_new RENAME TO constructions');
+    db.run('PRAGMA foreign_keys = ON');
+  },
 ];
 
 // ── Schema Version Management ───────────────────────────────────────────────
@@ -359,6 +389,7 @@ function _detectLegacyVersion(db) {
   const constrCols = db.query('PRAGMA table_info(constructions)').all().map(r => r.name);
 
   // Work backwards from latest to find the highest completed migration
+  if (constrCols.includes('type')) return 11;
   if (tables.includes('slot_lookup_cache')) return 10;
   if (tables.includes('cargo_items')) return 9;
   if (slotCols.includes('commodity_ref')) return 8;

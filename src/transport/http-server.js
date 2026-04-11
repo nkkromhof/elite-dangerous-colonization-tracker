@@ -3,6 +3,7 @@ import { handlePhaseTransition } from './routes/phase.js';
 import { handleHotkey } from './routes/hotkey.js';
 import { handleState } from './routes/state.js';
 import { handleCargoUpdate } from './routes/cargo.js';
+import { handleCommodityList } from './routes/commodities.js';
 
 /**
  * @param {object} deps
@@ -33,6 +34,9 @@ export function startHttpServer(deps, port) {
 
       // State snapshot
       if (path === '/api/state') return handleState(req, deps);
+
+      // Commodities reference list (for manual construction picker)
+      if (path === '/api/commodities') return handleCommodityList(req);
 
       // Constructions
       if (path === '/api/constructions') return handleConstructions(req, deps);

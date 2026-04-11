@@ -66,3 +66,45 @@ export async function refreshStations(constructionId) {
   });
   return res.json();
 }
+
+/**
+ * Create a manual construction site.
+ * @param {{ station_name: string }} params
+ */
+export async function createConstruction({ station_name }) {
+  const res = await fetch('/api/constructions', {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ station_name, type: 'manual', phase: 'collection' }),
+  });
+  return res.json();
+}
+
+/**
+ * Fetch the full list of known ED commodities for the picker.
+ * @returns {Promise<Array<{name: string, name_internal: string}>>}
+ */
+export async function fetchCommodities() {
+  const res = await fetch('/api/commodities');
+  return res.json();
+}
+
+/**
+ * Set the required amount for a commodity slot (upserts the slot).
+ */
+export async function setCommodityRequired(constructionId, name, amount_required) {
+  return fetch(`/api/constructions/${constructionId}/commodities/${encodeURIComponent(name)}`, {
+    method: 'PATCH',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ amount_required }),
+  });
+}
+
+/**
+ * Delete a commodity slot from a manual construction.
+ */
+export async function deleteCommoditySlot(constructionId, name) {
+  return fetch(`/api/constructions/${constructionId}/commodities/${encodeURIComponent(name)}`, {
+    method: 'DELETE',
+  });
+}

@@ -45,4 +45,23 @@ describe('database', () => {
     const row = db.query('SELECT version FROM _schema_version').get();
     expect(row.version).toBeGreaterThan(0);
   });
+
+  test('constructions table has type column after fresh install', () => {
+    const db = initDb(':memory:');
+    const cols = db.query('PRAGMA table_info(constructions)').all().map(r => r.name);
+    expect(cols).toContain('type');
+  });
+
+  test('constructions.system_name accepts NULL after fresh install', () => {
+    const db = initDb(':memory:');
+    const now = new Date().toISOString();
+    db.run(
+      `INSERT INTO constructions (id, system_name, station_name, phase, type, created_at, updated_at)
+       VALUES ('t1', NULL, 'Test Station', 'collection', 'manual', ?, ?)`,
+      [now, now]
+    );
+    const row = db.query("SELECT * FROM constructions WHERE id = 't1'").get();
+    expect(row.system_name).toBeNull();
+    expect(row.type).toBe('manual');
+  });
 });

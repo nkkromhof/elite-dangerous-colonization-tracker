@@ -2,11 +2,11 @@ import { getDb } from '../database.js';
 
 const now = () => new Date().toISOString();
 
-export function createConstruction({ id, system_name, station_name, station_type, market_id, phase = 'scanning' }) {
+export function createConstruction({ id, system_name, station_name, station_type, market_id, phase = 'scanning', type = 'auto' }) {
   getDb().run(
-    `INSERT INTO constructions (id, system_name, station_name, station_type, market_id, phase, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, system_name, station_name, station_type ?? null, market_id ?? null, phase, now(), now()]
+    `INSERT INTO constructions (id, system_name, station_name, station_type, market_id, phase, type, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, system_name ?? null, station_name, station_type ?? null, market_id ?? null, phase, type, now(), now()]
   );
 }
 

@@ -13,6 +13,7 @@ import {
   getCommoditySlot,
   incrementDelivered,
   setDelivered,
+  deleteCommoditySlot,
 } from '../db/repositories/slot-repo.js';
 import { recordDelivery } from '../db/repositories/delivery-repo.js';
 
@@ -26,9 +27,10 @@ export class ConstructionManager {
     });
   }
 
-  createConstruction({ system_name, station_name, station_type, market_id }) {
+  createConstruction({ system_name = null, station_name, station_type, market_id, type = 'auto' }) {
     const id = randomUUID();
-    createConstruction({ id, system_name, station_name, station_type, market_id, phase: 'scanning' });
+    const phase = type === 'manual' ? 'collection' : 'scanning';
+    createConstruction({ id, system_name, station_name, station_type, market_id, phase, type });
     if (market_id) this._marketIdIndex.set(market_id, id);
     const construction = { ...getConstruction(id), commodities: getCommoditySlots(id) };
     this._bus.emit('construction:added', construction);
@@ -64,6 +66,11 @@ export class ConstructionManager {
 
   getCommoditySlots(constructionId) { return getCommoditySlots(constructionId); }
   getCommoditySlot(constructionId, name) { return getCommoditySlot(constructionId, name); }
+
+  removeCommodity(constructionId, name) {
+    deleteCommoditySlot(constructionId, name);
+    this._bus.emit('commodity:removed', { constructionId, name });
+  }
 
   recordDelivery({ construction_id, commodity_name, amount, source }) {
     incrementDelivered(construction_id, commodity_name, amount);

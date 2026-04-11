@@ -4,7 +4,8 @@
   import { getActive, computeStationGroups } from '../../stores/constructions.svelte.js';
   import { getFcCargo, getShipCargo } from '../../stores/cargo.svelte.js';
   import { isCommodityComplete } from '../../utils/format.js';
-  import { refreshStations } from '../../utils/api.js';
+  import { refreshStations, deleteCommoditySlot } from '../../utils/api.js';
+  import CommodityPicker from '../commodities/CommodityPicker.svelte';
 
   let construction = $derived(getActive());
 
@@ -58,6 +59,12 @@
       : 'No pending lookups to queue';
     setTimeout(() => { refreshMessage = ''; }, 2500);
   }
+
+  async function handleRemoveCommodity(name) {
+    if (!construction) return;
+    await deleteCommoditySlot(construction.id, name);
+    // commodity_removed SSE will update the store
+  }
 </script>
 
 {#if !construction}
@@ -65,19 +72,32 @@
 {:else}
   <div class="construction-card" class:completed={isComplete}>
     <CommodityTable
-      headers={['NAME', 'REMAINING', 'TOTAL', 'CARRIER', 'SHIP']}
+      headers={construction.type === 'manual'
+        ? ['NAME', 'REMAINING', 'TOTAL', 'CARRIER', 'SHIP', '']
+        : ['NAME', 'REMAINING', 'TOTAL', 'CARRIER', 'SHIP']}
       totals={[
         'Totals',
         `<span class="col-remaining">${totals.remaining}</span>`,
         `<span class="col-total">${totals.total}</span>`,
         `<span class="col-carrier">${totals.carrier}</span>`,
         `<span class="col-ship">${totals.ship}</span>`,
+        ...(construction.type === 'manual' ? [''] : []),
       ]}
     >
       {#each sortedCommodities as commodity (commodity.name)}
-        <CommodityRow {commodity} mode="single-site" {stationGroups} allowStepper={true} />
+        <CommodityRow
+          {commodity}
+          mode="single-site"
+          {stationGroups}
+          allowStepper={true}
+          onRemove={construction.type === 'manual' ? handleRemoveCommodity : null}
+        />
       {/each}
     </CommodityTable>
+
+    {#if construction.type === 'manual'}
+      <CommodityPicker constructionId={construction.id} />
+    {/if}
 
     {#if hasIncomplete}
       <div class="refresh-bar">

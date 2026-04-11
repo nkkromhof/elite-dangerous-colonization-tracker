@@ -5,6 +5,7 @@ const EVENT_MAP = {
   'delivery:detected':          'delivery_detected',
   'construction:added':         'construction_added',
   'commodity:updated':          'commodity_updated',
+  'commodity:removed':          'commodity_removed',
   'delivery:recorded':          'delivery_recorded',
   'journal:connected':          'journal_connected',
   'journal:error':              'journal_error',
