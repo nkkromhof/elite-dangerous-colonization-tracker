@@ -21,54 +21,99 @@ Internal events on shared `eventBus`:
 
 ## Database Schema
 
-Tables in `src/db/schema.sql`:
+Tables defined in `src/db/database.js` (`CURRENT_SCHEMA_SQL`):
 
 ```sql
 constructions
-  id INTEGER PRIMARY KEY
+  id TEXT PRIMARY KEY
   system_name TEXT
   station_name TEXT
-  market_id INTEGER UNIQUE
+  station_type TEXT
+  market_id INTEGER
   phase TEXT (scanning|collection|done)
-  bound BOOLEAN (whether FC is bound)
-  archived BOOLEAN
+  bound INTEGER (whether FC is bound)
+  is_archived INTEGER
+  created_at TEXT
+  updated_at TEXT
+
+commodities
+  name_internal TEXT PRIMARY KEY  -- canonical internal ED name
+  name TEXT                       -- localized display name
+  category TEXT
+  inara_id TEXT
+  updated_at TEXT
 
 commodity_slots
-  construction_id INTEGER FK
+  id TEXT PRIMARY KEY
+  construction_id TEXT FK → constructions
   name TEXT
+  name_internal TEXT
+  commodity_ref TEXT FK → commodities
   amount_required INTEGER
   amount_delivered INTEGER
+  updated_at TEXT
+
+slot_lookup_cache
+  slot_id TEXT PRIMARY KEY FK → commodity_slots  -- extracted from commodity_slots in v10
+  station TEXT
+  system TEXT
+  supply INTEGER
+  queried_at TEXT
 
 deliveries
-  construction_id INTEGER FK
+  id TEXT PRIMARY KEY
+  construction_id TEXT FK → constructions
   commodity_name TEXT
   amount INTEGER
   source TEXT
-  delivered_at TIMESTAMP
+  delivered_at TEXT
 
-cargo_state
-  ship_cargo JSON
-  fc_cargo JSON
-  (singleton row)
+cargo_items
+  id TEXT PRIMARY KEY
+  location TEXT (ship|fc)         -- replaces cargo_state JSON blob (v9)
+  commodity_ref TEXT FK → commodities
+  name TEXT
+  count INTEGER
+  updated_at TEXT
+  INDEX idx_cargo_location(location)
 
 journal_state
+  id TEXT PRIMARY KEY DEFAULT 'singleton'
   file_path TEXT
   byte_offset INTEGER
-  (singleton row)
-
-market_stations
-  construction_id INTEGER FK
-  station_name TEXT
-  system_name TEXT
-  distance_ly REAL
-  max_stock INTEGER (for commodity)
-  commodity_name TEXT
-  updated_at TIMESTAMP
+  updated_at TEXT
 
 system_coordinates
-  system_name TEXT UNIQUE
-  x REAL, y REAL, z REAL (star position)
-  updated_at TIMESTAMP
+  system_name TEXT PRIMARY KEY
+  x REAL, y REAL, z REAL
+  updated_at TEXT
+
+station_market_cache
+  market_id INTEGER PRIMARY KEY
+  station_name TEXT
+  station_type TEXT
+  system_name TEXT
+  x REAL, y REAL, z REAL
+  inventory TEXT (JSON)
+  recorded_at TEXT
+
+market_inventory_index
+  market_id INTEGER FK → station_market_cache
+  name_internal TEXT
+  stock INTEGER
+  PRIMARY KEY (market_id, name_internal)
+  INDEX idx_inventory_commodity(name_internal, stock)
+
+commodity_station_results
+  name_internal TEXT
+  reference_system TEXT
+  station TEXT
+  system TEXT
+  distance_ly REAL
+  supply INTEGER
+  queried_at TEXT
+  PRIMARY KEY (name_internal, reference_system, station)
+  INDEX idx_csr_lookup(name_internal, reference_system, distance_ly)
 ```
 
 ## Features
@@ -98,7 +143,7 @@ system_coordinates
 - `Docked` @ Fleet Carrier → record FC MarketID
 
 **State persistence:**
-- On `cargo:updated`, saved to `cargo_state` table
+- On `cargo:updated`, saved to `cargo_items` table (one row per item, keyed by location)
 - Loaded on startup in index.js
 - FC cargo boot-sync commented out (under investigation)
 
