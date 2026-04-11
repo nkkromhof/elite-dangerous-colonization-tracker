@@ -18,6 +18,7 @@ describe('database', () => {
     expect(tables).toContain('deliveries');
     expect(tables).toContain('cargo_state');
     expect(tables).toContain('journal_state');
+    expect(tables).toContain('commodities');
   });
 
   test('initDb is idempotent', () => {

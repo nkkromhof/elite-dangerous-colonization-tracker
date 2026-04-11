@@ -1,5 +1,5 @@
 import { lookupNearestStation } from './inara-lookup.js';
-import { updateNearestStation, getCommoditySlot, clearFailedStationLookups, clearAllStationLookups } from '../db/repositories/commodity-repo.js';
+import { updateNearestStation, getCommoditySlot, clearFailedStationLookups, clearAllStationLookups } from '../db/repositories/slot-repo.js';
 import { getCachedStationResults, replaceStationResults, getStationResultsForCommodities, purgeStaleStationResults } from '../db/repositories/market-cache-repo.js';
 import { config } from '../config.js';
 import { emitError } from './event-bus.js';

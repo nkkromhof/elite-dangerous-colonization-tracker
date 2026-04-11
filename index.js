@@ -2,7 +2,7 @@ import { mkdirSync } from 'fs';
 import { dirname } from 'path';
 import { config } from './src/config.js';
 import { initDb } from './src/db/database.js';
-import { loadCargoState, loadJournalState, saveCargoState, saveJournalState } from './src/db/repositories/commodity-repo.js';
+import { loadCargoState, loadJournalState, saveCargoState, saveJournalState } from './src/db/repositories/cargo-repo.js';
 import { eventBus } from './src/core/event-bus.js';
 import { JournalWatcher } from './src/core/journal-watcher.js';
 import { CargoTracker } from './src/core/cargo-tracker.js';

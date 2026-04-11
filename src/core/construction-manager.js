@@ -13,8 +13,8 @@ import {
   getCommoditySlot,
   incrementDelivered,
   setDelivered,
-  recordDelivery,
-} from '../db/repositories/commodity-repo.js';
+} from '../db/repositories/slot-repo.js';
+import { recordDelivery } from '../db/repositories/delivery-repo.js';
 
 export class ConstructionManager {
   /** @param {import('events').EventEmitter} eventBus */

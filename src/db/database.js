@@ -110,6 +110,98 @@ function _migrateMarketInventoryIndex(db) {
   db.run(`CREATE INDEX IF NOT EXISTS idx_inventory_commodity ON market_inventory_index (name_internal, stock)`);
 }
 
+function _migrateCommoditiesTable(db) {
+  db.run(`
+    CREATE TABLE IF NOT EXISTS commodities (
+      name_internal TEXT PRIMARY KEY,
+      name          TEXT NOT NULL,
+      category      TEXT,
+      inara_id      TEXT,
+      updated_at    TEXT NOT NULL
+    )
+  `);
+}
+
+function _migrateCommodityRef(db) {
+  const cols = db.query('PRAGMA table_info(commodity_slots)').all().map(r => r.name);
+  if (!cols.includes('commodity_ref')) {
+    _ensureCommoditiesFromSlots(db);
+    db.run(`ALTER TABLE commodity_slots ADD COLUMN commodity_ref TEXT REFERENCES commodities(name_internal)`);
+    db.run(`UPDATE commodity_slots SET commodity_ref = name_internal WHERE commodity_ref IS NULL AND name_internal IS NOT NULL`);
+  }
+}
+
+function _ensureCommoditiesFromSlots(db) {
+  const ts = new Date().toISOString();
+  const rows = db.query(`SELECT DISTINCT name_internal, name FROM commodity_slots WHERE name_internal IS NOT NULL`).all();
+  const insert = db.prepare(
+    `INSERT OR IGNORE INTO commodities (name_internal, name, updated_at) VALUES (?, ?, ?)`
+  );
+  for (const row of rows) {
+    const name = row.name || row.name_internal.replace(/^\$/, '').replace(/_[Nn]ame;$/, '').replace(/^[a-z]/, c => c.toUpperCase());
+    insert.run(row.name_internal, name, ts);
+  }
+}
+
+function _migrateCargoItemsTable(db) {
+  db.run(`
+    CREATE TABLE IF NOT EXISTS cargo_items (
+      id            TEXT PRIMARY KEY,
+      location      TEXT NOT NULL,
+      commodity_ref TEXT REFERENCES commodities(name_internal),
+      name          TEXT NOT NULL,
+      count         INTEGER NOT NULL DEFAULT 0,
+      updated_at    TEXT NOT NULL
+    )
+  `);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_cargo_location ON cargo_items(location)`);
+
+  const row = db.query("SELECT ship_cargo, fc_cargo FROM cargo_state WHERE id = 'singleton'").get();
+  if (row) {
+    try {
+      const ship = JSON.parse(row.ship_cargo);
+      const fc = JSON.parse(row.fc_cargo);
+      const ts = new Date().toISOString();
+      const insert = db.prepare(
+        `INSERT OR IGNORE INTO cargo_items (id, location, commodity_ref, name, count, updated_at) VALUES (?, ?, ?, ?, ?, ?)`
+      );
+      for (const item of ship) {
+        insert.run(globalThis.crypto.randomUUID(), 'ship', null, item.name, item.count, ts);
+      }
+      for (const item of fc) {
+        insert.run(globalThis.crypto.randomUUID(), 'fc', null, item.name, item.count, ts);
+      }
+    } catch { }
+  }
+}
+
+function _migrateSlotLookupCache(db) {
+  db.run(`
+    CREATE TABLE IF NOT EXISTS slot_lookup_cache (
+      slot_id    TEXT PRIMARY KEY REFERENCES commodity_slots(id) ON DELETE CASCADE,
+      station    TEXT,
+      system     TEXT,
+      supply     INTEGER,
+      queried_at TEXT
+    )
+  `);
+
+  const cols = db.query('PRAGMA table_info(commodity_slots)').all().map(r => r.name);
+  if (cols.includes('nearest_station')) {
+    const rows = db.query(
+      `SELECT id, nearest_station, nearest_system, nearest_supply, nearest_queried_at FROM commodity_slots WHERE nearest_station IS NOT NULL OR nearest_queried_at IS NOT NULL`
+    ).all();
+    if (rows.length > 0) {
+      const insert = db.prepare(
+        `INSERT OR IGNORE INTO slot_lookup_cache (slot_id, station, system, supply, queried_at) VALUES (?, ?, ?, ?, ?)`
+      );
+      for (const row of rows) {
+        insert.run(row.id, row.nearest_station, row.nearest_system, row.nearest_supply, row.nearest_queried_at);
+      }
+    }
+  }
+}
+
 function _migrateCommodityStationResults(db) {
   db.run(`
     CREATE TABLE IF NOT EXISTS commodity_station_results (
@@ -146,5 +238,9 @@ export function initDb(dbPath = ':memory:') {
   _migrateMarketCache(_db);
   _migrateMarketInventoryIndex(_db);
   _migrateCommodityStationResults(_db);
+  _migrateCommoditiesTable(_db);
+  _migrateCommodityRef(_db);
+  _migrateCargoItemsTable(_db);
+  _migrateSlotLookupCache(_db);
   return _db;
 }
