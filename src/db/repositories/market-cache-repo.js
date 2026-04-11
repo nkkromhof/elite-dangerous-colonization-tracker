@@ -1,6 +1,4 @@
 import { getDb } from '../database.js';
-import { fetchStationMarket, parseMarketData } from '../../core/spansh-lookup.js';
-import { logger } from '../../core/logger.js';
 
 const now = () => new Date().toISOString();
 
@@ -72,52 +70,6 @@ export function upsertStationMarket({ marketId, stationName, stationType, system
  * @param {number|null} [excludeMarketId]  market ID to exclude (e.g. player's own carrier)
  * @returns {{ marketId, stationName, stationType, systemName, stock, distanceLy, recordedAt }[]}
  */
-/**
- * Update market data for a specific station by fetching from Spansh API
- * @param {number} marketId - The market ID of the station to update
- * @returns {Promise<boolean>} - True if update was successful
- */
-export async function updateStationMarketFromSpansh(marketId) {
-  const { data, transient } = await fetchStationMarket(marketId);
-  
-  if (transient) {
-    logger.warn('MarketCacheRepo', `Transient error fetching market data for marketId ${marketId}`);
-    return false;
-  }
-  
-  if (!data) {
-    logger.warn('MarketCacheRepo', `No market data returned for marketId ${marketId}`);
-    return false;
-  }
-  
-  // Extract required fields from Spansh response
-  const { stationName, stationType, systemName, position, commodities } = data;
-  
-  if (!stationName || !systemName || !position) {
-    logger.warn('MarketCacheRepo', `Incomplete station data for marketId ${marketId}`);
-    return false;
-  }
-  
-  // Parse commodities data
-  const inventory = parseMarketData(data);
-  
-  // Upsert to local cache
-  upsertStationMarket({
-    marketId,
-    stationName,
-    stationType: stationType ?? null,
-    systemName,
-    x: position.x,
-    y: position.y,
-    z: position.z,
-    inventory,
-    recordedAt: new Date().toISOString()
-  });
-  
-  logger.info('MarketCacheRepo', `Updated market data for ${stationName} (marketId: ${marketId}) with ${inventory.length} commodities`);
-  return true;
-}
-
 export function findCachedStationsForCommodity(nameInternal, maxAgeDays, tx, ty, tz, excludeMarketId = null) {
   const cutoff = new Date(Date.now() - maxAgeDays * 24 * 60 * 60 * 1000).toISOString();
   const rows = getDb().query(
