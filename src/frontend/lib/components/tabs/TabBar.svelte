@@ -52,12 +52,11 @@
     >
       <div class="tab-content">
         <span class="tab-name">
-          {#if c.type === 'manual'}
-            <span class="manual-icon" title="Manual site">✎</span>
-          {/if}
           {parseStationName(c.station_name)}
         </span>
-        {#if formatStationType(c.station_type)}
+        {#if c.type === 'manual'}
+          <span class="tab-type">custom list</span>
+        {:else if formatStationType(c.station_type)}
           <span class="tab-type">{formatStationType(c.station_type)}</span>
         {/if}
       </div>
@@ -129,9 +128,12 @@
   }
 
   .tab-add {
+    align-self: stretch;
+    aspect-ratio: 1;
+    padding: 0;
+    justify-content: center;
     font-size: 1.25rem;
     font-weight: 300;
-    padding: var(--space-sm) var(--space-xl);
     opacity: 0.5;
     flex-shrink: 0;
   }
@@ -152,12 +154,6 @@
   .tab-name {
     font-weight: 600;
     font-size: 0.875rem;
-  }
-
-  .manual-icon {
-    font-size: 0.75rem;
-    opacity: 0.6;
-    margin-right: 2px;
   }
 
   .tab-type {

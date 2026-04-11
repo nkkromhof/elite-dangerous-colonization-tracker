@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Full UI Mockup - Simplified</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { 
+      width: 100%; height: 100vh; 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
+      background: #111; color: #fff; 
+      overflow: hidden;
+    }
+
+    :root {
+      --zoom: 1;
+      --color-bg: #111;
+      --color-surface: #1a1a1a;
+      --color-border: #333;
+      --color-primary: #553F83;
+      --color-text: #fff;
+      --color-text-muted: #888;
+      --color-success: #16A34A;
+      --color-warning: #D97706;
+      --color-danger: #DC2626;
+      --color-carrier: #B794F4;
+      --color-remaining: #FF6B35;
+    }
+
+    .app {
+      width: 100%;
+      height: 100%;
+      transform: scale(var(--zoom));
+      transform-origin: top left;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* HEADER */
+    .header {
+      background: #141414;
+      border-bottom: 2px solid var(--color-border);
+      padding: 20px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .header-title {
+      font-size: 32px;
+      font-weight: 700;
+    }
+    .zoom-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .zoom-btn {
+      width: 56px;
+      height: 56px;
+      background: var(--color-surface);
+      border: 2px solid var(--color-border);
+      border-radius: 10px;
+      color: var(--color-text);
+      font-size: 28px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .zoom-btn:hover { border-color: var(--color-primary); background: #222; }
+    .zoom-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .zoom-display {
+      font-size: 28px;
+      font-weight: 600;
+      min-width: 80px;
+      text-align: center;
+    }
+
+    /* TABS */
+    .tabs-container {
+      background: var(--color-surface);
+      border-bottom: 1px solid var(--color-border);
+      padding: 16px 40px;
+      display: flex;
+      gap: 12px;
+      overflow-x: auto;
+      flex-shrink: 0;
+    }
+    .tab {
+      background: #252525;
+      border: 2px solid var(--color-border);
+      border-radius: 10px;
+      padding: 14px 24px;
+      font-size: 22px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      white-space: nowrap;
+    }
+    .tab:hover { border-color: var(--color-primary); }
+    .tab.active {
+      background: var(--color-primary);
+      border-color: var(--color-primary);
+    }
+    .tab.completed { opacity: 0.5; }
+    .tab-delete {
+      width: 28px;
+      height: 28px;
+      background: rgba(0,0,0,0.3);
+      border: none;
+      border-radius: 6px;
+      color: var(--color-text);
+      font-size: 18px;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .tab:hover .tab-delete { opacity: 1; }
+    .tab-delete:hover { background: var(--color-danger); }
+
+    /* MAIN CONTENT */
+    .main {
+      flex: 1;
+      padding: 40px;
+      overflow-y: auto;
+    }
+
+    /* CONSTRUCTION CARD */
+    .construction-card {
+      background: var(--color-surface);
+      border: 2px solid var(--color-border);
+      border-radius: 16px;
+      padding: 40px;
+    }
+    .construction-card.completed { opacity: 0.5; }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 32px;
+    }
+    .card-title {
+      font-size: 36px;
+      font-weight: 700;
+    }
+    .card-subtitle {
+      color: var(--color-text-muted);
+      font-size: 22px;
+      margin-top: 8px;
+    }
+    .badge {
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 20px;
+      font-weight: 700;
+    }
+    .badge-done { background: var(--color-success); color: #fff; }
+
+    /* COMMODITY TABLE */
+    .commodity-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .commodity-table th {
+      text-align: left;
+      padding: 18px;
+      color: #aaa;
+      font-size: 18px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 2px solid var(--color-border);
+    }
+    .commodity-table td {
+      padding: 28px 18px;
+      font-size: 26px;
+      border-bottom: 1px solid #2a2a2a;
+      vertical-align: middle;
+    }
+    .commodity-name { font-weight: 700; }
+    .col-total { color: #fff; font-weight: 500; }
+    .col-remaining { color: var(--color-remaining); font-weight: 700; }
+    .col-carrier { color: var(--color-carrier); font-weight: 600; }
+    .col-ship { color: var(--color-success); font-weight: 600; }
+    .col-zero { color: #444; }
+    .row-done { opacity: 0.4; }
+    .row-done td { text-decoration: line-through; }
+
+    /* SCROLLBAR */
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: var(--color-bg); }
+    ::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 5px; }
+    ::-webkit-scrollbar-thumb:hover { background: #555; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- HEADER -->
+    <header class="header">
+      <div class="header-title">ED Colonization Tracker</div>
+      <div class="zoom-controls">
+        <button class="zoom-btn" id="zoom-out">−</button>
+        <span class="zoom-display" id="zoom-display">100%</span>
+        <button class="zoom-btn" id="zoom-in">+</button>
+      </div>
+    </header>
+
+    <!-- TABS -->
+    <div class="tabs-container">
+      <div class="tab active">
+        <span>Aegaed</span>
+        <button class="tab-delete">×</button>
+      </div>
+      <div class="tab">
+        <span>LHS 3447</span>
+        <button class="tab-delete">×</button>
+      </div>
+      <div class="tab completed">
+        <span>Diemo</span>
+        <span class="badge badge-done" style="font-size:14px; padding:6px 12px;">✓</span>
+        <button class="tab-delete">×</button>
+      </div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <main class="main">
+      <div class="construction-card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Aegaed</div>
+            <div class="card-subtitle">System: Aegaed | Planetary Outpost</div>
+          </div>
+        </div>
+
+        <table class="commodity-table">
+          <thead>
+            <tr>
+              <th>NAME</th>
+              <th>TOTAL</th>
+              <th>REMAINING</th>
+              <th>CARRIER</th>
+              <th>SHIP</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="commodity-name">Neofab insulating membrane</td>
+              <td class="col-total">100</td>
+              <td class="col-remaining">69</td>
+              <td class="col-carrier">23</td>
+              <td class="col-ship">8</td>
+            </tr>
+            <tr>
+              <td class="commodity-name">Pertonite dust</td>
+              <td class="col-total">50</td>
+              <td class="col-remaining">42</td>
+              <td class="col-zero">—</td>
+              <td class="col-ship">8</td>
+            </tr>
+            <tr>
+              <td class="commodity-name">Methane</td>
+              <td class="col-total">75</td>
+              <td class="col-remaining">30</td>
+              <td class="col-carrier">20</td>
+              <td class="col-zero">—</td>
+            </tr>
+            <tr class="row-done">
+              <td class="commodity-name">Tungsten</td>
+              <td class="col-total">200</td>
+              <td class="col-zero">0</td>
+              <td class="col-zero">—</td>
+              <td class="col-zero">—</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <script src="/helper.js"></script>
+  <script>
+    let zoom = 100;
+    const updateZoom = (delta) => {
+      zoom = Math.max(50, Math.min(200, zoom + delta));
+      document.getElementById('zoom-display').textContent = zoom + '%';
+      document.getElementById('zoom-out').disabled = zoom <= 50;
+      document.getElementById('zoom-in').disabled = zoom >= 200;
+      document.querySelector('.app').style.setProperty('--zoom', zoom / 100);
+    };
+    document.getElementById('zoom-in').onclick = () => updateZoom(10);
+    document.getElementById('zoom-out').onclick = () => updateZoom(-10);
+  </script>
+</body>
+</html>

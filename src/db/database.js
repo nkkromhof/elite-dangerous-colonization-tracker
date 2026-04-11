@@ -1,4 +1,5 @@
 import { Database } from 'bun:sqlite';
+import { COMMODITY_DISPLAY_NAMES } from '../../public/inara-commodity-ids.js';
 
 /** @type {import('bun:sqlite').Database | null} */
 let _db = null;
@@ -138,7 +139,7 @@ CREATE TABLE IF NOT EXISTS commodity_station_results (
 CREATE INDEX IF NOT EXISTS idx_csr_lookup ON commodity_station_results (name_internal, reference_system, distance_ly);
 `;
 
-const CURRENT_VERSION = 11;
+const CURRENT_VERSION = 12;
 
 // ── Legacy Migrations ───────────────────────────────────────────────────────
 // These run only when upgrading an existing database from a previous version.
@@ -315,6 +316,15 @@ const MIGRATIONS = [
     db.run('DROP TABLE constructions');
     db.run('ALTER TABLE constructions_new RENAME TO constructions');
     db.run('PRAGMA foreign_keys = ON');
+  },
+
+  // v11 → v12: Repair commodity display names seeded with raw internal-name fallback
+  function v12_fixCommodityNames(db) {
+    const stmt = db.prepare(`UPDATE commodities SET name = ?, updated_at = ? WHERE name_internal = ?`);
+    const ts = new Date().toISOString();
+    for (const [key, name] of Object.entries(COMMODITY_DISPLAY_NAMES)) {
+      stmt.run(name, ts, `$${key}_Name;`);
+    }
   },
 ];
 

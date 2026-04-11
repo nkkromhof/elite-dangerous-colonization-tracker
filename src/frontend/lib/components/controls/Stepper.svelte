@@ -1,8 +1,8 @@
 <script>
-  import { onDestroy } from 'svelte';
+  import { onDestroy, untrack } from 'svelte';
 
   let { value = 0, min = 0, onSave } = $props();
-  let editValue = $state(value);
+  let editValue = $state(untrack(() => value));
   let holdTimer = null;
   let holdInterval = null;
   let holdWasActive = false;

@@ -116,8 +116,14 @@
   </Modal>
 
   {#if showArchivedModal}
-    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-    <div class="modal-overlay" onclick={(e) => { if (e.target === e.currentTarget) showArchivedModal = false; }}>
+    <div
+      class="modal-overlay"
+      role="button"
+      tabindex="-1"
+      aria-label="Close"
+      onclick={(e) => { if (e.target === e.currentTarget) showArchivedModal = false; }}
+      onkeydown={(e) => { if (e.key === 'Escape') showArchivedModal = false; }}
+    >
       <div class="archived-panel">
         <h3>Archived Constructions</h3>
         <div class="archived-list">
@@ -155,7 +161,6 @@
     border: 1px solid var(--color-border);
     border-radius: var(--radius-card);
     box-shadow: var(--shadow-card);
-    overflow: hidden;
   }
 
   .modal-overlay {

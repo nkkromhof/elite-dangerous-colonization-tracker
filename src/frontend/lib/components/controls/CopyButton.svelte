@@ -12,10 +12,9 @@
   }
 </script>
 
-<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-<span class="copyable" onclick={handleCopy}>
+<button type="button" class="copyable" onclick={handleCopy}>
   {@render children()}
-</span>
+</button>
 
 {#if showToast}
   <div class="copy-toast">Copied!</div>
@@ -24,6 +23,12 @@
 <style>
   .copyable {
     cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    color: inherit;
+    text-align: inherit;
   }
 
   .copyable:hover {

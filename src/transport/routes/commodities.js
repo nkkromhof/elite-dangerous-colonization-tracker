@@ -1,4 +1,4 @@
-import { INARA_COMMODITY_IDS } from '../../../public/inara-commodity-ids.js';
+import { INARA_COMMODITY_IDS, COMMODITY_DISPLAY_NAMES } from '../../../public/inara-commodity-ids.js';
 import { getDb } from '../../db/database.js';
 
 /**
@@ -18,7 +18,7 @@ export function handleCommodityList(req) {
   const list = Object.keys(INARA_COMMODITY_IDS)
     .map(key => {
       const dbName = dbNames.get(`$${key}_Name;`);
-      const name = dbName || (key.charAt(0).toUpperCase() + key.slice(1));
+      const name = dbName || COMMODITY_DISPLAY_NAMES[key] || (key.charAt(0).toUpperCase() + key.slice(1));
       return { name, name_internal: key };
     })
     .sort((a, b) => a.name.localeCompare(b.name));

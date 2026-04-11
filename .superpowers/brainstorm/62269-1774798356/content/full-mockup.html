@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Full UI Mockup</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { 
+      width: 100%; height: 100vh; 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
+      background: #111; color: #fff; 
+      overflow: hidden;
+    }
+
+    :root {
+      --zoom: 1;
+      --color-bg: #111;
+      --color-surface: #1a1a1a;
+      --color-border: #333;
+      --color-primary: #553F83;
+      --color-text: #fff;
+      --color-text-muted: #888;
+      --color-success: #16A34A;
+      --color-warning: #D97706;
+      --color-danger: #DC2626;
+      --color-carrier: #B794F4;
+      --color-remaining: #FF6B35;
+      --spacing-xs: 4px;
+      --spacing-sm: 8px;
+      --spacing-md: 16px;
+      --spacing-lg: 24px;
+      --spacing-xl: 32px;
+      --font-size-base: 24px;
+      --font-size-lg: 32px;
+      --font-size-sm: 20px;
+    }
+
+    .app {
+      width: 100%;
+      height: 100%;
+      transform: scale(var(--zoom));
+      transform-origin: top left;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* HEADER */
+    .header {
+      background: #141414;
+      border-bottom: 2px solid var(--color-border);
+      padding: var(--spacing-md) var(--spacing-xl);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .header-title {
+      font-size: var(--font-size-lg);
+      font-weight: 700;
+      color: var(--color-text);
+    }
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-lg);
+    }
+    .zoom-controls {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+    }
+    .zoom-btn {
+      width: 48px;
+      height: 48px;
+      background: var(--color-surface);
+      border: 2px solid var(--color-border);
+      border-radius: 8px;
+      color: var(--color-text);
+      font-size: var(--font-size-base);
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .zoom-btn:hover { border-color: var(--color-primary); }
+    .zoom-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .zoom-display {
+      font-size: var(--font-size-base);
+      font-weight: 600;
+      min-width: 70px;
+      text-align: center;
+    }
+    .mode-select {
+      background: var(--color-surface);
+      border: 2px solid var(--color-border);
+      border-radius: 8px;
+      color: var(--color-text);
+      font-size: var(--font-size-sm);
+      padding: 12px 16px;
+      cursor: pointer;
+    }
+    .mode-select:hover { border-color: var(--color-primary); }
+
+    /* TABS */
+    .tabs-container {
+      background: var(--color-surface);
+      border-bottom: 1px solid var(--color-border);
+      padding: var(--spacing-md) var(--spacing-xl);
+      display: flex;
+      gap: var(--spacing-sm);
+      overflow-x: auto;
+      flex-shrink: 0;
+    }
+    .tab {
+      background: #252525;
+      border: 2px solid var(--color-border);
+      border-radius: 8px;
+      padding: 12px 20px;
+      font-size: var(--font-size-sm);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      white-space: nowrap;
+      position: relative;
+    }
+    .tab:hover { border-color: var(--color-primary); }
+    .tab.active {
+      background: var(--color-primary);
+      border-color: var(--color-primary);
+    }
+    .tab-delete {
+      width: 24px;
+      height: 24px;
+      background: rgba(0,0,0,0.3);
+      border: none;
+      border-radius: 4px;
+      color: var(--color-text);
+      font-size: 16px;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .tab:hover .tab-delete { opacity: 1; }
+    .tab-delete:hover { background: var(--color-danger); }
+
+    /* MAIN CONTENT */
+    .main {
+      flex: 1;
+      padding: var(--spacing-xl);
+      overflow-y: auto;
+    }
+
+    /* CONSTRUCTION CARD */
+    .construction-card {
+      background: var(--color-surface);
+      border: 2px solid var(--color-border);
+      border-radius: 12px;
+      padding: var(--spacing-xl);
+    }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: var(--spacing-xl);
+    }
+    .card-title {
+      font-size: var(--font-size-lg);
+      font-weight: 700;
+    }
+    .card-subtitle {
+      color: var(--color-text-muted);
+      font-size: var(--font-size-sm);
+      margin-top: var(--spacing-xs);
+    }
+    .badge {
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: var(--font-size-sm);
+      font-weight: 600;
+    }
+    .badge-collection { background: var(--color-primary); }
+    .badge-done { background: var(--color-success); }
+
+    /* COMMODITY TABLE */
+    .commodity-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .commodity-table th {
+      text-align: left;
+      padding: 16px;
+      color: #aaa;
+      font-size: 15px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 2px solid var(--color-border);
+    }
+    .commodity-table td {
+      padding: 22px 16px;
+      font-size: var(--font-size-base);
+      border-bottom: 1px solid #2a2a2a;
+      vertical-align: middle;
+    }
+    .commodity-name { font-weight: 700; }
+    .col-total { color: var(--color-text); font-weight: 500; }
+    .col-remaining { color: var(--color-remaining); font-weight: 700; }
+    .col-carrier { color: var(--color-carrier); font-weight: 600; }
+    .col-ship { color: var(--color-success); font-weight: 600; }
+    .col-zero { color: #555; }
+    .row-done { opacity: 0.5; }
+    .row-done .col-remaining,
+    .row-done .col-carrier,
+    .row-done .col-ship { color: #555; }
+
+    /* CARGO SUMMARY */
+    .cargo-summary {
+      margin-top: var(--spacing-xl);
+      padding-top: var(--spacing-lg);
+      border-top: 1px solid var(--color-border);
+      display: flex;
+      gap: var(--spacing-xl);
+    }
+    .cargo-stat {
+      font-size: var(--font-size-sm);
+    }
+    .cargo-stat-label { color: var(--color-text-muted); }
+    .cargo-stat-value { font-weight: 700; }
+    .cargo-stat-value.ship { color: var(--color-success); }
+    .cargo-stat-value.carrier { color: var(--color-carrier); }
+
+    /* SCROLLBAR */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: var(--color-bg); }
+    ::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #555; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- HEADER -->
+    <header class="header">
+      <div class="header-title">ED Colonization Tracker</div>
+      <div class="header-controls">
+        <div class="zoom-controls">
+          <button class="zoom-btn" id="zoom-out">−</button>
+          <span class="zoom-display" id="zoom-display">100%</span>
+          <button class="zoom-btn" id="zoom-in">+</button>
+        </div>
+        <select class="mode-select" id="mode-select">
+          <option value="direct">Direct</option>
+          <option value="carrier">Carrier</option>
+        </select>
+      </div>
+    </header>
+
+    <!-- TABS -->
+    <div class="tabs-container">
+      <div class="tab active">
+        <span>Aegaed</span>
+        <button class="tab-delete">×</button>
+      </div>
+      <div class="tab">
+        <span>LHS 3447</span>
+        <button class="tab-delete">×</button>
+      </div>
+      <div class="tab">
+        <span>Diemo</span>
+        <button class="tab-delete">×</button>
+      </div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <main class="main">
+      <div class="construction-card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Aegaed</div>
+            <div class="card-subtitle">System: Aegaed | Station Type: Planetary Outpost</div>
+          </div>
+          <span class="badge badge-collection">Collection</span>
+        </div>
+
+        <table class="commodity-table">
+          <thead>
+            <tr>
+              <th>NAME</th>
+              <th>TOTAL</th>
+              <th>REMAINING</th>
+              <th>CARRIER</th>
+              <th>SHIP</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="commodity-name">Neofab insulating membrane</td>
+              <td class="col-total">100</td>
+              <td class="col-remaining">69</td>
+              <td class="col-carrier">23</td>
+              <td class="col-ship">8</td>
+            </tr>
+            <tr>
+              <td class="commodity-name">Pertonite dust</td>
+              <td class="col-total">50</td>
+              <td class="col-remaining">42</td>
+              <td class="col-zero">—</td>
+              <td class="col-ship">8</td>
+            </tr>
+            <tr class="row-done">
+              <td class="commodity-name">Tungsten</td>
+              <td class="col-total">200</td>
+              <td class="col-remaining">0</td>
+              <td class="col-carrier">150</td>
+              <td class="col-ship">50</td>
+            </tr>
+            <tr>
+              <td class="commodity-name">Methane</td>
+              <td class="col-total">75</td>
+              <td class="col-remaining">30</td>
+              <td class="col-carrier">20</td>
+              <td class="col-zero">—</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="cargo-summary">
+          <div class="cargo-stat">
+            <span class="cargo-stat-label">Carrier: </span>
+            <span class="cargo-stat-value carrier">193 / 500</span>
+          </div>
+          <div class="cargo-stat">
+            <span class="cargo-stat-label">Ship: </span>
+            <span class="cargo-stat-value ship">58 / 100</span>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/helper.js"></script>
+  <script>
+    // Mock zoom interaction
+    let zoom = 100;
+    const updateZoom = (delta) => {
+      zoom = Math.max(50, Math.min(200, zoom + delta));
+      document.getElementById('zoom-display').textContent = zoom + '%';
+      document.getElementById('zoom-out').disabled = zoom <= 50;
+      document.getElementById('zoom-in').disabled = zoom >= 200;
+      document.querySelector('.app').style.setProperty('--zoom', zoom / 100);
+    };
+    document.getElementById('zoom-in').onclick = () => updateZoom(10);
+    document.getElementById('zoom-out').onclick = () => updateZoom(-10);
+  </script>
+</body>
+</html>

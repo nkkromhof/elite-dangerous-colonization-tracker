@@ -13,8 +13,14 @@
 <svelte:window onkeydown={open ? handleKeydown : undefined} />
 
 {#if open}
-  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-  <div class="modal-overlay" onclick={handleOverlayClick}>
+  <div
+    class="modal-overlay"
+    role="button"
+    tabindex="-1"
+    aria-label="Close dialog"
+    onclick={handleOverlayClick}
+    onkeydown={handleKeydown}
+  >
     <div class="modal-panel">
       <h3>{title}</h3>
       {@render children()}

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cargo Table v2</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #111; color: #fff; min-height: 100vh; padding: 32px; }
+    h2 { font-size: 28px; margin-bottom: 8px; }
+    .subtitle { color: #ccc; margin-bottom: 24px; font-size: 18px; }
+    .preview { background: #1a1a1a; border-radius: 12px; padding: 20px; max-width: 950px; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; padding: 16px; color: #aaa; font-size: 15px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid #333; }
+    td { padding: 22px 16px; font-size: 24px; border-bottom: 1px solid #2a2a2a; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    .name { font-weight: 700; color: #fff; }
+    .total { color: #fff; font-weight: 500; }
+    .remaining { color: #FF6B35; font-weight: 600; } /* Orange - needs attention */
+    .carrier { color: #B794F4; font-weight: 600; } /* Purple - carrier */
+    .ship { color: #4ADE80; font-weight: 600; } /* Green - ship */
+    .zero { color: #555; }
+    .header-row { background: #141414; }
+    .hint { color: #888; font-size: 14px; margin-top: 16px; text-align: center; }
+  </style>
+</head>
+<body>
+  <h2>Collection Phase Table</h2>
+  <p class="subtitle">Resources needed vs what's available where</p>
+
+  <div class="preview">
+    <table>
+      <tr class="header-row">
+        <th>NAME</th>
+        <th>TOTAL</th>
+        <th>REMAINING</th>
+        <th>CARRIER</th>
+        <th>SHIP</th>
+      </tr>
+      <tr>
+        <td class="name">Neofab insulating membrane</td>
+        <td class="total">100</td>
+        <td class="remaining">69</td>
+        <td class="carrier">23</td>
+        <td class="ship">8</td>
+      </tr>
+      <tr>
+        <td class="name">Pertonite dust</td>
+        <td class="total">50</td>
+        <td class="remaining">42</td>
+        <td class="zero">—</td>
+        <td class="ship">8</td>
+      </tr>
+      <tr>
+        <td class="name">Tungsten</td>
+        <td class="total">200</td>
+        <td class="zero">0</td>
+        <td class="carrier">150</td>
+        <td class="ship">50</td>
+      </tr>
+    </table>
+  </div>
+
+  <p class="hint">High contrast colors: Orange = what's left to deliver, Purple = in carrier, Green = in ship</p>
+
+  <script src="/helper.js"></script>
+</body>
+</html>

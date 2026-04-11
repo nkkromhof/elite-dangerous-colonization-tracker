@@ -35,13 +35,19 @@ export class SseHandler {
   createStream() {
     const clients = this._clients;
     let controller;
+    let heartbeat;
 
     const stream = new ReadableStream({
       start(c) {
         controller = c;
         clients.add(controller);
+        const ping = new TextEncoder().encode(': heartbeat\n\n');
+        heartbeat = setInterval(() => {
+          try { c.enqueue(ping); } catch { clearInterval(heartbeat); clients.delete(c); }
+        }, 8000);
       },
       cancel() {
+        clearInterval(heartbeat);
         clients.delete(controller);
       },
     });

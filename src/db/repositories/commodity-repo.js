@@ -1,12 +1,15 @@
 import { getDb } from '../database.js';
 import { COMMODITY_CATEGORIES } from '../../core/commodity-categories.js';
+import { COMMODITY_DISPLAY_NAMES } from '../../../public/inara-commodity-ids.js';
 
 const now = () => new Date().toISOString();
 
 function nameFromInternal(nameInternal) {
   if (!nameInternal) return '';
-  const stripped = nameInternal.replace(/^\$/, '').replace(/_[Nn]ame;$/, '');
-  return stripped.charAt(0).toUpperCase() + stripped.slice(1);
+  const key = nameInternal.replace(/^\$/, '').replace(/_[Nn]ame;$/, '').toLowerCase();
+  if (COMMODITY_DISPLAY_NAMES[key]) return COMMODITY_DISPLAY_NAMES[key];
+  // Fallback: capitalize first letter only (handles unknown future commodities)
+  return key.charAt(0).toUpperCase() + key.slice(1);
 }
 
 function inaraIdFromInternal(nameInternal) {

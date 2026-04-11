@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Delivery Mode Selection</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
+      background: #111; color: #fff; 
+      min-height: 100vh; padding: 32px;
+    }
+    h2 { font-size: 28px; margin-bottom: 8px; }
+    .subtitle { color: #888; margin-bottom: 24px; font-size: 18px; }
+    .options { display: flex; flex-direction: column; gap: 16px; }
+    .option { 
+      border: 2px solid #333; border-radius: 12px; padding: 24px; 
+      cursor: pointer; display: flex; align-items: flex-start; gap: 20px;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .option:hover { border-color: #553F83; background: rgba(85,63,131,0.1); }
+    .option.selected { border-color: #553F83; background: rgba(85,63,131,0.2); }
+    .letter { 
+      font-size: 32px; font-weight: 800; color: #553F83; 
+      min-width: 40px;
+    }
+    h3 { font-size: 22px; margin-bottom: 6px; }
+    p { color: #888; font-size: 16px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <h2>Delivery Mode: How do we handle this?</h2>
+  <p class="subtitle">The user must choose their workflow. Direct = buy & deliver immediately. Carrier = stockpile on FC first.</p>
+
+  <div class="options">
+    <div class="option" data-choice="toggle" onclick="toggleSelect(this)">
+      <div class="letter">A</div>
+      <div class="content">
+        <h3>Mode Toggle</h3>
+        <p>Two-state switch at top: "Direct Delivery" vs "Carrier Mode". Stays visible. Simple but requires user to consciously choose.</p>
+      </div>
+    </div>
+    <div class="option" data-choice="auto" onclick="toggleSelect(this)">
+      <div class="letter">B</div>
+      <div class="content">
+        <h3>Auto-Detect</h3>
+        <p>System detects mode from cargo state. If Fleet Carrier cargo exists → carrier mode. If only ship cargo → direct. Less clicks, more implicit.</p>
+      </div>
+    </div>
+    <div class="option" data-choice="unified" onclick="toggleSelect(this)">
+      <div class="letter">C</div>
+      <div class="content">
+        <h3>Unified View</h3>
+        <p>Show all three locations (station, carrier, construction) in one view. User decides sequence. Most flexible but complex.</p>
+      </div>
+    </div>
+    <div class="option" data-choice="phase" onclick="toggleSelect(this)">
+      <div class="letter">D</div>
+      <div class="content">
+        <h3>Phase-Based</h3>
+        <p>Each phase has its own mode settings. "Scanning" → add sites. "Collection" → choose delivery method. "Done" → summary. Guided flow.</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="/helper.js"></script>
+  <script>
+    function toggleSelect(el) {
+      document.querySelectorAll('.option').forEach(o => o.classList.remove('selected'));
+      el.classList.add('selected');
+      fetch('/event', { method: 'POST', body: JSON.stringify({ choice: el.dataset.choice }) });
+    }
+  </script>
+</body>
+</html>
