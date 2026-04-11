@@ -12,6 +12,8 @@ const EVENT_MAP = {
   'ship:updated':               'ship_updated',
   'construction:archived':      'construction_archived',
   'construction:unarchived':    'construction_unarchived',
+  'station:commodities_available': 'station_commodities_available',
+  'station:left':               'station_left',
 };
 
 export class SseHandler {

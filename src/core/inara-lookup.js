@@ -186,10 +186,10 @@ async function _solveChallenge(html) {
 }
 
 /**
- * Fetch the nearest station from Inara selling the given commodity.
+ * Fetch all stations from Inara selling the given commodity near a reference system.
  * @param {string} nameInternal  e.g. "$FoodCartridges_Name;"
  * @param {string} systemName    reference system for distance sorting
- * @returns {Promise<{ data: {station,system,distanceLy,supply}|null, transient: boolean }>}
+ * @returns {Promise<{ data: Array<{station:string,system:string,distanceLy:number,supply:number|null}>, transient: boolean }>}
  *   transient=true means a retriable error (rate limit, network); queriedAt should NOT be stamped.
  *   transient=false means a definitive answer (success or genuinely no results).
  */
@@ -242,11 +242,11 @@ export async function lookupNearestStation(nameInternal, systemName) {
     const rows = parseAllRows(html);
     if (rows.length === 0) {
       logger.info(TAG, `No results for ${nameInternal} near ${systemName}`);
-      return { data: null, transient: false };
+      return { data: [], transient: false };
     }
-    const { station, system, distanceLy, supply } = rows[0];
-    logger.info(TAG, `${nameInternal} → ${station} / ${system} (${distanceLy} ly, supply ${supply})`);
-    return { data: { station, system, distanceLy, supply }, transient: false };
+    const results = rows.map(({ station, system, distanceLy, supply }) => ({ station, system, distanceLy, supply }));
+    logger.info(TAG, `${nameInternal} → ${results.length} stations, nearest: ${results[0].station} / ${results[0].system} (${results[0].distanceLy} ly, supply ${results[0].supply})`);
+    return { data: results, transient: false };
   } catch (err) {
     logger.warn(TAG, `Fetch failed for ${nameInternal}: ${err?.message ?? err}`);
     return { data: null, transient: true };

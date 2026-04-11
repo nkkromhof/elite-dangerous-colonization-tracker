@@ -110,6 +110,22 @@ function _migrateMarketInventoryIndex(db) {
   db.run(`CREATE INDEX IF NOT EXISTS idx_inventory_commodity ON market_inventory_index (name_internal, stock)`);
 }
 
+function _migrateCommodityStationResults(db) {
+  db.run(`
+    CREATE TABLE IF NOT EXISTS commodity_station_results (
+      name_internal     TEXT NOT NULL,
+      reference_system  TEXT NOT NULL,
+      station           TEXT NOT NULL,
+      system            TEXT NOT NULL,
+      distance_ly       REAL NOT NULL,
+      supply            INTEGER,
+      queried_at        TEXT NOT NULL,
+      PRIMARY KEY (name_internal, reference_system, station)
+    )
+  `);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_csr_lookup ON commodity_station_results (name_internal, reference_system, distance_ly)`);
+}
+
 /** @returns {import('bun:sqlite').Database} */
 export function getDb() {
   return _db;
@@ -129,5 +145,6 @@ export function initDb(dbPath = ':memory:') {
   _migrateArchived(_db);
   _migrateMarketCache(_db);
   _migrateMarketInventoryIndex(_db);
+  _migrateCommodityStationResults(_db);
   return _db;
 }

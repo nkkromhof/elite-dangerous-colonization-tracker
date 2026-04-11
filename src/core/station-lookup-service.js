@@ -1,17 +1,17 @@
 import { lookupNearestStation } from './inara-lookup.js';
 import { updateNearestStation, getCommoditySlot, clearFailedStationLookups, clearAllStationLookups } from '../db/repositories/commodity-repo.js';
-import { findCachedStationsForCommodity, getSystemCoordinates } from '../db/repositories/market-cache-repo.js';
+import { getCachedStationResults, replaceStationResults, getStationResultsForCommodities, purgeStaleStationResults } from '../db/repositories/market-cache-repo.js';
+import { config } from '../config.js';
 import { emitError } from './event-bus.js';
 import { logger } from './logger.js';
 
 const TAG = 'StationLookup';
 
-const STALE_MS           = 24 * 60 * 60 * 1000; // 24 hours
-const REQUEST_DELAY_MS   = 5_000;                // be polite to Inara
-const RETRY_DELAY_MS     = 60_000;               // wait after a rate-limit hit before retrying
-const CACHE_MAX_AGE_DAYS = 7;
-const INARA_SEARCH_RANGE = 500;                  // ly — must match inara-lookup.js
-const RESULT_CACHE_TTL   = 5 * 60 * 1000;        // 5 min — short-lived in-memory result cache
+const REQUEST_DELAY_MS   = 5_000;
+const RETRY_DELAY_MS      = 60_000;
+const CSR_MAX_AGE_HOURS   = 24;
+const INARA_SEARCH_RANGE  = 500;
+const SUPPLY_MULTIPLIER   = 3;
 
 export class StationLookupService {
   /**
@@ -25,12 +25,6 @@ export class StationLookupService {
     this._cargoTracker = cargoTracker;
     this._queue = [];
     this._processing = false;
-
-    // Short-lived cache of lookup results keyed by "nameInternal\0referenceSystem".
-    // Survives across a single processing pass so late-arriving slots (via events)
-    // can instantly resolve from results we just fetched seconds ago.
-    /** @type {Map<string, { station: string|null, system: string|null, supply: number|null, queriedAt: string, expiresAt: number }>} */
-    this._resultCache = new Map();
 
     bus.on('commodity:updated', ({ constructionId, slot }) => {
       if (this._needsLookup(slot)) this._enqueue(constructionId, slot);
@@ -75,7 +69,6 @@ export class StationLookupService {
    */
   forceRefreshConstruction(constructionId) {
     clearAllStationLookups(constructionId);
-    this._resultCache.clear();
     let queued = 0;
     for (const slot of this._manager.getCommoditySlots(constructionId)) {
       const fresh = getCommoditySlot(constructionId, slot.name);
@@ -92,8 +85,14 @@ export class StationLookupService {
     if (!slot.name_internal) return false;
     const remaining = slot.amount_required - slot.amount_delivered;
     if (remaining <= 0) return false;
+
+    const cached = getCachedStationResults(slot.name_internal, slot.nearest_system ?? '', CSR_MAX_AGE_HOURS);
+    if (cached !== null) {
+      return false;
+    }
+
     if (!slot.nearest_queried_at) return true;
-    return Date.now() - new Date(slot.nearest_queried_at).getTime() > STALE_MS;
+    return Date.now() - new Date(slot.nearest_queried_at).getTime() > CSR_MAX_AGE_HOURS * 60 * 60 * 1000;
   }
 
   _enqueue(constructionId, slot) {
@@ -116,12 +115,13 @@ export class StationLookupService {
 
   async _process() {
     this._processing = true;
+
+    purgeStaleStationResults(CSR_MAX_AGE_HOURS);
+
     while (this._queue.length > 0) {
       const batch = this._queue.splice(0, this._queue.length);
 
       // ── Step 1: Group queue items by (commodity, referenceSystem) ───────
-      // Multiple constructions wanting the same commodity near the same system
-      // collapse into a single lookup with multiple fan-out targets.
       /** @type {Map<string, { nameInternal: string, referenceSystem: string, targets: { constructionId: string, commodityName: string }[] }>} */
       const groups = new Map();
       for (const item of batch) {
@@ -139,27 +139,15 @@ export class StationLookupService {
         logger.info(TAG, `Deduplicated ${deduped} lookups (${batch.length} slots → ${groups.size} unique queries)`);
       }
 
-      // ── Step 2: Resolve from in-memory result cache + local market cache ─
+      // ── Step 2: Resolve from commodity_station_results cache ─────────────
       const needsInara = [];
-      const cachedAt = new Date().toISOString();
 
       for (const [key, group] of groups) {
-        // Check short-lived in-memory result cache first (from a recent Inara hit)
-        const cached = this._getResultCache(key);
-        if (cached) {
-          logger.debug(TAG, `Result cache hit: ${group.nameInternal} near ${group.referenceSystem}`);
-          this._fanOut(group.targets, cached.station, cached.system, cached.supply, cached.queriedAt);
+        const cached = getCachedStationResults(group.nameInternal, group.referenceSystem, CSR_MAX_AGE_HOURS);
+        if (cached !== null) {
+          logger.debug(TAG, `CSR cache hit: ${group.nameInternal} near ${group.referenceSystem} (${cached.length} stations)`);
           continue;
         }
-
-        // Check local market cache (station_market_cache via indexed query)
-        const marketHit = this._checkCache(group.nameInternal, group.referenceSystem, this._cargoTracker?.getFcMarketId() ?? null);
-        if (marketHit) {
-          this._fanOut(group.targets, marketHit.station, marketHit.system, marketHit.supply, cachedAt);
-          this._setResultCache(key, marketHit.station, marketHit.system, marketHit.supply, cachedAt);
-          continue;
-        }
-
         needsInara.push({ key, group });
       }
 
@@ -170,74 +158,25 @@ export class StationLookupService {
       // ── Step 3: Query Inara one commodity at a time, with polite delays ──
       for (let i = 0; i < needsInara.length; i++) {
         const { key, group } = needsInara[i];
-        await this._lookupAndFanOut(key, group);
+        await this._lookupAndCache(key, group);
         if (i < needsInara.length - 1) {
           await new Promise(r => setTimeout(r, REQUEST_DELAY_MS));
         }
+      }
+
+      // ── Step 4: Run one-stop analysis for each construction ──────────────
+      const constructionIds = new Set(batch.map(b => b.constructionId));
+      for (const constructionId of constructionIds) {
+        await this._analyzeOneStop(constructionId);
       }
     }
     this._processing = false;
   }
 
-  /** Write a station result to DB for a single slot and notify the bus. */
-  _record(constructionId, commodityName, station, system, supply, queriedAt) {
-    updateNearestStation(constructionId, commodityName, {
-      station: station ?? null,
-      system:  system  ?? null,
-      supply:  supply  ?? null,
-      queriedAt,
-    });
-    const updated = getCommoditySlot(constructionId, commodityName);
-    if (updated) this._bus.emit('commodity:updated', { constructionId, slot: updated });
-  }
-
-  /** Fan out a single lookup result to all slots that were waiting for it. */
-  _fanOut(targets, station, system, supply, queriedAt) {
-    for (const { constructionId, commodityName } of targets) {
-      this._record(constructionId, commodityName, station, system, supply, queriedAt);
-    }
-  }
-
-  // ── In-memory result cache ──────────────────────────────────────────────────
-
-  _getResultCache(key) {
-    const entry = this._resultCache.get(key);
-    if (!entry) return null;
-    if (Date.now() > entry.expiresAt) {
-      this._resultCache.delete(key);
-      return null;
-    }
-    return entry;
-  }
-
-  _setResultCache(key, station, system, supply, queriedAt) {
-    this._resultCache.set(key, {
-      station, system, supply, queriedAt,
-      expiresAt: Date.now() + RESULT_CACHE_TTL,
-    });
-  }
-
-  // ── Cache + Inara lookups ───────────────────────────────────────────────────
-
   /**
-   * Check local market cache for a single commodity relative to a construction system.
-   * Returns a result object or null if no hit.
+   * Query Inara for a commodity, cache all results in commodity_station_results.
    */
-  _checkCache(nameInternal, systemName, excludeMarketId = null) {
-    const coords = getSystemCoordinates(systemName);
-    if (!coords) return null;
-
-    const hits = findCachedStationsForCommodity(
-      nameInternal, CACHE_MAX_AGE_DAYS, coords.x, coords.y, coords.z, excludeMarketId
-    );
-    const hit = hits.find(h => h.distanceLy <= INARA_SEARCH_RANGE);
-    if (!hit) return null;
-
-    logger.info(TAG, `Cache hit: ${nameInternal} → ${hit.stationName} / ${hit.systemName} (${hit.distanceLy.toFixed(1)} ly, stock ${hit.stock})`);
-    return { station: hit.stationName, system: hit.systemName, distanceLy: hit.distanceLy, supply: hit.stock };
-  }
-
-  async _lookupAndFanOut(key, group) {
+  async _lookupAndCache(key, group) {
     const { nameInternal, referenceSystem, targets } = group;
 
     logger.info(TAG, `Querying Inara: ${nameInternal} near ${referenceSystem} (for ${targets.length} slot${targets.length > 1 ? 's' : ''})`);
@@ -250,29 +189,166 @@ export class StationLookupService {
     }
 
     if (!data && !transient) {
-      logger.warn(TAG, `No station found for ${nameInternal} near ${referenceSystem} (within 500ly)`);
-      emitError(TAG, `No station found for ${nameInternal} within 500ly of ${referenceSystem}`);
+      logger.warn(TAG, `No station found for ${nameInternal} near ${referenceSystem} (within ${INARA_SEARCH_RANGE}ly)`);
+      emitError(TAG, `No station found for ${nameInternal} within ${INARA_SEARCH_RANGE}ly of ${referenceSystem}`);
     } else if (!data && transient) {
       logger.warn(TAG, `Still failing after retry for ${nameInternal} — will retry next run`);
     }
 
     // Discard the result if Inara returned the player's own fleet carrier
     const ownCarrierName = this._cargoTracker?.getFcStationName() ?? null;
-    if (data && ownCarrierName && data.station === ownCarrierName) {
-      logger.info(TAG, `Ignoring own carrier "${ownCarrierName}" returned by Inara for ${nameInternal}`);
-      data = null;
+    let filteredData = data ?? [];
+    if (ownCarrierName) {
+      filteredData = filteredData.filter(r => r.station !== ownCarrierName);
     }
 
-    const station  = data?.station ?? null;
-    const system   = data?.system ?? null;
-    const supply   = data?.supply ?? null;
-    const queriedAt = !transient ? new Date().toISOString() : null;
+    if (filteredData.length > 0) {
+      const queriedAt = !transient ? new Date().toISOString() : new Date(0).toISOString();
+      replaceStationResults(nameInternal, referenceSystem, filteredData, queriedAt);
+      logger.info(TAG, `Cached ${filteredData.length} stations for ${nameInternal} near ${referenceSystem}`);
+    }
+  }
 
-    // Cache the result so other slots arriving later can resolve instantly
-    if (!transient) {
-      this._setResultCache(key, station, system, supply, queriedAt);
+  /**
+   * Run one-stop shopping analysis for a construction.
+   * Uses greedy set-cover to assign each commodity to the best station.
+   */
+  async _analyzeOneStop(constructionId) {
+    const construction = this._manager.getConstruction(constructionId);
+    if (!construction) return;
+
+    const slots = this._manager.getCommoditySlots(constructionId);
+    const neededSlots = slots.filter(s => {
+      if (!s.name_internal) return false;
+      const remaining = s.amount_required - s.amount_delivered;
+      return remaining > 0;
+    });
+
+    if (neededSlots.length === 0) return;
+
+    const nameInternals = neededSlots.map(s => s.name_internal);
+    const stationMap = getStationResultsForCommodities(nameInternals, construction.system_name, CSR_MAX_AGE_HOURS);
+
+    if (stationMap.size === 0) {
+      const queriedAt = new Date().toISOString();
+      for (const slot of neededSlots) {
+        this._record(constructionId, slot.name, null, null, null, queriedAt);
+      }
+      return;
     }
 
-    this._fanOut(targets, station, system, supply, queriedAt);
+    // Build remaining amounts per commodity
+    const remainingAmounts = new Map();
+    for (const slot of neededSlots) {
+      remainingAmounts.set(slot.name_internal, slot.amount_required - slot.amount_delivered);
+    }
+
+    // For each station, determine which commodities it can cover (3x supply rule)
+    // and score it by coverage count (primary) and distance (secondary)
+    const stationCandidates = [];
+    for (const [key, info] of stationMap) {
+      const covered3x = [];
+      const coveredFallback = [];
+      for (const [nameInternal, supply] of info.commodities) {
+        if (!remainingAmounts.has(nameInternal)) continue;
+        const required = remainingAmounts.get(nameInternal);
+        if (supply != null && supply >= SUPPLY_MULTIPLIER * required) {
+          covered3x.push(nameInternal);
+        } else {
+          coveredFallback.push({ nameInternal, supply: supply ?? 0 });
+        }
+      }
+      stationCandidates.push({
+        key,
+        station: info.station,
+        system: info.system,
+        distanceLy: info.distanceLy,
+        covered3x,
+        coveredFallback,
+      });
+    }
+
+    // Greedy set-cover: assign commodities to stations
+    const assignments = new Map(); // nameInternal → { station, system, supply, lowSupply }
+    const assigned = new Set();
+
+    // Sort candidates: primary by 3x coverage count desc, secondary by distance asc
+    stationCandidates.sort((a, b) => {
+      if (b.covered3x.length !== a.covered3x.length) return b.covered3x.length - a.covered3x.length;
+      return a.distanceLy - b.distanceLy;
+    });
+
+    // Pass 1: Assign commodities using the 3x rule (greedy set-cover)
+    for (const candidate of stationCandidates) {
+      const unassigned = candidate.covered3x.filter(n => !assigned.has(n));
+      if (unassigned.length === 0) continue;
+
+      for (const nameInternal of unassigned) {
+        const supply = stationMap.get(candidate.key).commodities.get(nameInternal);
+        assignments.set(nameInternal, {
+          station: candidate.station,
+          system: candidate.system,
+          supply,
+          lowSupply: false,
+        });
+        assigned.add(nameInternal);
+      }
+    }
+
+    // Pass 2: For remaining unassigned commodities, find the best station
+    // even if it doesn't meet the 3x rule (fallback)
+    const unassigned = nameInternals.filter(n => !assigned.has(n) && remainingAmounts.has(n));
+    for (const nameInternal of unassigned) {
+      let bestStation = null;
+      let bestSupply = -1;
+      let bestDistance = Infinity;
+
+      for (const [key, info] of stationMap) {
+        if (!info.commodities.has(nameInternal)) continue;
+        const supply = info.commodities.get(nameInternal) ?? 0;
+        if (supply > bestSupply || (supply === bestSupply && info.distanceLy < bestDistance)) {
+          bestStation = { key, station: info.station, system: info.system, supply, distanceLy: info.distanceLy };
+          bestSupply = supply;
+          bestDistance = info.distanceLy;
+        }
+      }
+
+      if (bestStation) {
+        assignments.set(nameInternal, {
+          station: bestStation.station,
+          system: bestStation.system,
+          supply: bestStation.supply,
+          lowSupply: true,
+        });
+        assigned.add(nameInternal);
+      }
+    }
+
+    // Write results to commodity slots
+    const queriedAt = new Date().toISOString();
+    for (const slot of neededSlots) {
+      const assignment = assignments.get(slot.name_internal);
+      if (assignment) {
+        this._record(constructionId, slot.name, assignment.station, assignment.system, assignment.supply, queriedAt);
+      } else {
+        this._record(constructionId, slot.name, null, null, null, queriedAt);
+      }
+    }
+
+    const covered = assigned.size;
+    const total = neededSlots.length;
+    logger.info(TAG, `One-stop analysis for construction ${constructionId}: ${covered}/${total} commodities assigned, ${stationMap.size} candidate stations`);
+  }
+
+  /** Write a station result to DB for a single slot and notify the bus. */
+  _record(constructionId, commodityName, station, system, supply, queriedAt) {
+    updateNearestStation(constructionId, commodityName, {
+      station: station ?? null,
+      system:  system  ?? null,
+      supply:  supply  ?? null,
+      queriedAt,
+    });
+    const updated = getCommoditySlot(constructionId, commodityName);
+    if (updated) this._bus.emit('commodity:updated', { constructionId, slot: updated });
   }
 }

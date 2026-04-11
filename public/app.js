@@ -57,6 +57,7 @@ const state = {
   sessionErrors: [],
   editingCell: null,
   collectionPhase: localStorage.getItem('ed-tracker-collection-phase') || 'collecting',
+  currentStation: null,
 };
 
 const elements = {
@@ -91,6 +92,43 @@ function init() {
   startPeriodicSync();
 }
 
+function computeStationGroups(commodities) {
+  const groups = new Map();
+  for (const c of commodities) {
+    if (!c.nearest_station) continue;
+    const remaining = c.amount_required - c.amount_delivered;
+    if (remaining <= 0) continue;
+    const key = `${c.nearest_station}|${c.nearest_system}`;
+    if (!groups.has(key)) {
+      groups.set(key, { station: c.nearest_station, system: c.nearest_system, count: 0 });
+    }
+    groups.get(key).count++;
+  }
+  return groups;
+}
+
+function stationBadgeHtml(commodity, groups) {
+  if (!commodity.nearest_station) return '';
+  const key = `${commodity.nearest_station}|${commodity.nearest_system}`;
+  const group = groups.get(key);
+  if (!group || group.count <= 1) return '';
+  return `<span class="onestop-badge">+${group.count - 1} other item${group.count - 1 > 1 ? 's' : ''}</span>`;
+}
+
+function isLowSupply(commodity) {
+  if (commodity.nearest_supply == null) return false;
+  const remaining = commodity.amount_required - commodity.amount_delivered;
+  if (remaining <= 0) return false;
+  return commodity.nearest_supply < 3 * remaining;
+}
+
+function stationSpanHtml(c, groups) {
+  if (!c.nearest_station) return '';
+  const lowClass = isLowSupply(c) ? ' low-supply' : '';
+  const badge = stationBadgeHtml(c, groups);
+  return `<span class="nearest-station copyable${lowClass}" data-copy="${c.nearest_system}">${c.nearest_station} · ${c.nearest_system}${c.nearest_supply != null ? ` · ${c.nearest_supply.toLocaleString()} supply` : ''}${badge}</span>`;
+}
+
 function startPeriodicSync() {
   if (syncInterval) clearInterval(syncInterval);
   syncInterval = setInterval(async () => {
@@ -109,6 +147,10 @@ function startPeriodicSync() {
       }
       if (JSON.stringify(data.ship) !== JSON.stringify(state.ship)) {
         state.ship = data.ship || null;
+        changed = true;
+      }
+      if (JSON.stringify(data.currentStation) !== JSON.stringify(state.currentStation)) {
+        state.currentStation = data.currentStation || null;
         changed = true;
       }
       if (changed) render();
@@ -141,6 +183,7 @@ async function fetchState() {
     state.constructions = data.constructions || [];
     state.cargo = data.cargo || { ship: [], fc: [] };
     state.ship = data.ship || null;
+    state.currentStation = data.currentStation || null;
     if (state.constructions.length > 0 && !state.activeConstructionId) {
       state.activeConstructionId = state.constructions[0].id;
       localStorage.setItem('ed-tracker-active-tab', state.activeConstructionId);
@@ -250,6 +293,15 @@ function connectSSE() {
     const data = JSON.parse(e.data);
     state.constructions.push(data.construction);
     state.constructions.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    render();
+  });
+  es.addEventListener('station_commodities_available', (e) => {
+    const data = JSON.parse(e.data);
+    state.currentStation = { name: data.stationName, system: data.systemName, availableCommodities: data.availableCommodities };
+    render();
+  });
+  es.addEventListener('station_left', () => {
+    state.currentStation = null;
     render();
   });
   es.addEventListener('app_error', (e) => {
@@ -436,6 +488,10 @@ function getCargoForCommodity(name) {
 
 function isCommodityComplete(commodity) {
   return commodity.amount_delivered >= commodity.amount_required;
+}
+
+function isAvailableAtStation(name) {
+  return state.currentStation?.availableCommodities?.includes(name) ?? false;
 }
 
 function render() {
@@ -673,16 +729,17 @@ function renderAllTab() {
       const cargo = getCargoForCommodity(c.name);
       const done = cargo.fc === 0;
       
-      // Calculate if all sites are done for this commodity
       const allSitesDone = activeConstructions.every(con => {
         const siteData = c.sites.get(con.id);
         return !siteData || siteData.remaining === 0;
       });
+
+      const available = !allSitesDone && isAvailableAtStation(c.name);
       
       let rowHtml = `
-        <tr class="commodity-row ${allSitesDone ? 'row-done' : ''}">
+        <tr class="commodity-row ${allSitesDone ? 'row-done' : ''} ${available ? 'available-here' : ''}">
           <td class="col-check">${allSitesDone ? '✓' : ''}</td>
-          <td class="commodity-name">${c.name}</td>
+          <td class="commodity-name">${c.name}${available ? '<span class="in-stock-badge">In stock</span>' : ''}</td>
           <td>${done ? '' : cargo.fc > 0 ? `<span class="col-carrier">${cargo.fc}</span>` : '—'}</td>
       `;
       
@@ -740,19 +797,22 @@ function renderAllTab() {
           </tr>
     `;
 
+    const stationGroups = computeStationGroups(commodities);
+
     commodities.forEach(c => {
       const cargo = getCargoForCommodity(c.name);
       const needsDelivered = Math.max(0, c.amount_required - c.amount_delivered);
       const gap = c.amount_required - cargo.fc - cargo.ship;
       const done = needsDelivered === 0 || (cargo.fc + cargo.ship) >= needsDelivered;
+      const available = !done && isAvailableAtStation(c.name);
       const gapDisplay = gap <= 0 ? (gap === 0 ? '✓' : `+${Math.abs(gap)}`) : gap;
       const gapClass = gap <= 0 ? 'col-zero' : 'col-remaining';
       html += `
-        <tr class="commodity-row ${done ? 'row-done' : ''}">
+        <tr class="commodity-row ${done ? 'row-done' : ''} ${available ? 'available-here' : ''}">
           <td class="col-check">${done ? '✓' : ''}</td>
           <td class="commodity-name">
-            ${c.name}
-            ${!done && c.nearest_station ? `<span class="nearest-station copyable" data-copy="${c.nearest_system}">${c.nearest_station} · ${c.nearest_system}${c.nearest_supply != null ? ` · ${c.nearest_supply.toLocaleString()} supply` : ''}</span>` : ''}
+            ${c.name}${available ? '<span class="in-stock-badge">In stock</span>' : ''}
+            ${!done && c.nearest_station ? stationSpanHtml(c, stationGroups) : ''}
           </td>
           <td>${done ? '' : `<span class="col-total">${c.amount_required}</span>`}</td>
           <td>${done ? '' : cargo.fc > 0 ? `<span class="col-carrier">${cargo.fc}</span>` : '—'}</td>
@@ -858,16 +918,19 @@ function renderConstructionCard() {
     return b.amount_required - a.amount_required;
   });
 
+  const stationGroups = computeStationGroups(construction.commodities);
+
   construction.commodities.forEach(c => {
     const cargo = getCargoForCommodity(c.name);
     const remaining = c.amount_required - c.amount_delivered;
     const done = isCommodityComplete(c);
+    const available = !done && isAvailableAtStation(c.name);
     html += `
-      <tr class="commodity-row ${done ? 'row-done' : ''}">
+      <tr class="commodity-row ${done ? 'row-done' : ''} ${available ? 'available-here' : ''}">
         <td class="col-check">${done ? '✓' : ''}</td>
         <td class="commodity-name">
-          ${c.name}
-          ${!done && remaining > 0 && (cargo.fc + cargo.ship) < remaining && c.nearest_station ? `<span class="nearest-station copyable" data-copy="${c.nearest_system}">${c.nearest_station} · ${c.nearest_system}${c.nearest_supply != null ? ` · ${c.nearest_supply.toLocaleString()} supply` : ''}</span>` : ''}
+          ${c.name}${available ? '<span class="in-stock-badge">In stock</span>' : ''}
+          ${!done && remaining > 0 && (cargo.fc + cargo.ship) < remaining && c.nearest_station ? stationSpanHtml(c, stationGroups) : ''}
         </td>
         <td>${done ? '' : `<span class="${remaining > 0 ? 'col-remaining' : 'col-zero'}">${remaining}</span>`}</td>
         <td>${done ? '' : `<span class="col-total">${c.amount_required}</span>`}</td>

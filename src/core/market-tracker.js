@@ -13,6 +13,7 @@ export class MarketTracker {
    */
   constructor(bus, journalDir) {
     this._journalDir = journalDir;
+    this._bus = bus;
 
     bus.on('journal:event', (e) => {
       // Track system coordinates from every jump/location event
@@ -74,5 +75,7 @@ export class MarketTracker {
     });
 
     logger.info(TAG, `Cached ${inventory.length} items from ${StationName} (${StarSystem})`);
+
+    this._bus.emit('market:stored', { marketId: MarketID, stationName: StationName, systemName: StarSystem });
   }
 }
