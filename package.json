@@ -5,10 +5,18 @@
   "scripts": {
     "start": "bun run index.js",
     "test": "bun test",
-    "build": "bun build --compile --target=bun-windows-x64 ./index.js --outfile ed-colonisation-tracker.exe"
+    "build": "bun build --compile --target=bun-windows-x64 ./index.js --outfile ed-colonisation-tracker.exe",
+    "dev:frontend": "vite --config vite.config.js",
+    "build:frontend": "vite build --config vite.config.js",
+    "preview:frontend": "vite preview --config vite.config.js"
   },
   "type": "module",
   "dependencies": {
     "chokidar": "3"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^7.0.0",
+    "svelte": "^5.55.3",
+    "vite": "^8.0.8"
   }
 }

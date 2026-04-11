@@ -6,3 +6,4 @@ data/
 bun.lockb
 docs/
 .env
+public/dist/
