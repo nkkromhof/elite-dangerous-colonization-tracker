@@ -15,6 +15,7 @@ let holdTimer = null;
 let holdInterval = null;
 let holdButton = null;
 let holdWasActive = false;
+let syncInterval = null;
 
 function clearHoldTimers() {
   if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
@@ -77,14 +78,44 @@ const elements = {
   statusCount: document.getElementById('status-count'),
   statusDropdown: document.getElementById('status-dropdown'),
   statusList: document.getElementById('status-list'),
+  themeToggle: document.getElementById('theme-toggle'),
 };
 
 function init() {
   loadZoom();
+  initializeTheme();
   fetchState();
   connectSSE();
   setupEventListeners();
   setupStepperListeners();
+  startPeriodicSync();
+}
+
+function startPeriodicSync() {
+  if (syncInterval) clearInterval(syncInterval);
+  syncInterval = setInterval(async () => {
+    try {
+      const res = await fetch('/api/state');
+      if (!res.ok) return;
+      const data = await res.json();
+      let changed = false;
+      if (JSON.stringify(data.constructions) !== JSON.stringify(state.constructions)) {
+        state.constructions = data.constructions || [];
+        changed = true;
+      }
+      if (JSON.stringify(data.cargo) !== JSON.stringify(state.cargo)) {
+        state.cargo = data.cargo || { ship: [], fc: [] };
+        changed = true;
+      }
+      if (JSON.stringify(data.ship) !== JSON.stringify(state.ship)) {
+        state.ship = data.ship || null;
+        changed = true;
+      }
+      if (changed) render();
+    } catch (err) {
+      console.error('Periodic sync failed:', err);
+    }
+  }, 30000);
 }
 
 function loadZoom() {
@@ -121,7 +152,33 @@ async function fetchState() {
 }
 
 function connectSSE() {
-  const es = new EventSource('/api/events');
+  let es = new EventSource('/api/events');
+  let reconnectTimer = null;
+
+  function scheduleReconnect() {
+    if (reconnectTimer) return;
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = null;
+      console.log('[SSE] Reconnecting...');
+      connectSSE();
+      fetchState();
+    }, 3000);
+  }
+
+  es.addEventListener('open', () => {
+    console.log('[SSE] Connected');
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
+  });
+
+  es.addEventListener('error', () => {
+    console.warn('[SSE] Connection lost');
+    es.close();
+    scheduleReconnect();
+  });
+
   es.addEventListener('cargo_updated', (e) => {
     state.cargo = JSON.parse(e.data);
     render();
@@ -129,10 +186,10 @@ function connectSSE() {
   es.addEventListener('delivery_recorded', (e) => {
     const data = JSON.parse(e.data);
     const construction = state.constructions.find(c => c.id === data.construction_id);
-    if (construction) {
-      const slot = construction.commodities.find(s => s.name === data.commodity_name);
-      if (slot) {
-        slot.amount_delivered += data.amount;
+    if (construction && data.slot) {
+      const idx = construction.commodities.findIndex(s => s.name.toLowerCase() === data.commodity_name.toLowerCase());
+      if (idx >= 0) {
+        construction.commodities[idx] = data.slot;
       }
     }
     render();
@@ -147,8 +204,8 @@ function connectSSE() {
   es.addEventListener('commodity_updated', (e) => {
     const data = JSON.parse(e.data);
     const construction = state.constructions.find(c => c.id === data.constructionId);
-    if (construction) {
-      const idx = construction.commodities.findIndex(s => s.name === data.slot.name);
+    if (construction && data.slot) {
+      const idx = construction.commodities.findIndex(s => s.name.toLowerCase() === data.slot.name.toLowerCase());
       if (idx >= 0) {
         construction.commodities[idx] = data.slot;
       } else {
@@ -214,6 +271,7 @@ function setupEventListeners() {
     const current = parseFloat(localStorage.getItem('ed-tracker-zoom') || '1');
     setZoom(current + 0.1);
   });
+  elements.themeToggle.addEventListener('click', toggleTheme);
   elements.deleteCancel.addEventListener('click', closeDeleteModal);
   elements.deleteConfirm.addEventListener('click', confirmDelete);
   elements.deleteModal.addEventListener('click', (e) => {
@@ -231,6 +289,42 @@ function setupEventListeners() {
   document.addEventListener('click', () => {
     elements.statusDropdown.classList.remove('visible');
   });
+}
+
+function initializeTheme() {
+  const savedTheme = localStorage.getItem('ed-tracker-theme') || 'dark';
+  applyTheme(savedTheme);
+}
+
+function toggleTheme() {
+  const currentTheme = localStorage.getItem('ed-tracker-theme') || 'dark';
+  const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+  applyTheme(newTheme);
+  localStorage.setItem('ed-tracker-theme', newTheme);
+}
+
+function applyTheme(theme) {
+  const isDarkMode = theme === 'dark';
+  
+  if (isDarkMode) {
+    document.body.classList.add('dark-mode');
+  } else {
+    document.body.classList.remove('dark-mode');
+  }
+  
+  // Update icon visibility
+  const lightIcon = document.querySelector('.theme-icon-light');
+  const darkIcon = document.querySelector('.theme-icon-dark');
+  
+  if (isDarkMode) {
+    // In dark mode, show the light icon (to switch to light mode)
+    lightIcon.style.display = 'none';
+    darkIcon.style.display = 'block';
+  } else {
+    // In light mode, show the sun icon (to switch to dark mode)
+    lightIcon.style.display = 'block';
+    darkIcon.style.display = 'none';
+  }
 }
 
 function closeDeleteModal() {
