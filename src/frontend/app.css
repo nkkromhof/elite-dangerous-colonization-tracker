@@ -1,1 +1,143 @@
-/* Global styles - populated in Task 3 */
+/* ED Colonization Tracker - Notion-Inspired Design System */
+
+:root {
+  --zoom: 1;
+
+  /* Color Palette - Notion Inspired */
+  --color-bg: #ffffff;
+  --color-bg-subtle: #f6f5f4;
+  --color-text-primary: rgba(0, 0, 0, 0.95);
+  --color-text-secondary: #615d59;
+  --color-text-muted: #a39e98;
+  --color-border: rgba(0, 0, 0, 0.1);
+
+  /* Primary Accent - Notion Blue */
+  --color-primary: #0075de;
+  --color-primary-hover: #005bab;
+  --color-primary-focus: #097fe8;
+
+  /* Secondary Brand */
+  --color-secondary: #213183;
+
+  /* Semantic Colors */
+  --color-success: #1aae39;
+  --color-teal: #2a9d99;
+  --color-warning: #dd5b00;
+  --color-danger: #dc2626;
+  --color-pink: #ff64c8;
+  --color-purple: #391c57;
+  --color-brown: #523410;
+
+  /* Badge Colors */
+  --color-badge-bg: #f2f9ff;
+  --color-badge-text: #097fe8;
+
+  /* Shadows - Multi-layer stacks */
+  --shadow-card: rgba(0, 0, 0, 0.04) 0px 4px 18px,
+                 rgba(0, 0, 0, 0.027) 0px 2.025px 7.84688px,
+                 rgba(0, 0, 0, 0.02) 0px 0.8px 2.925px,
+                 rgba(0, 0, 0, 0.01) 0px 0.175px 1.04062px;
+
+  --shadow-deep: rgba(0, 0, 0, 0.01) 0px 1px 3px,
+                 rgba(0, 0, 0, 0.02) 0px 3px 7px,
+                 rgba(0, 0, 0, 0.02) 0px 7px 15px,
+                 rgba(0, 0, 0, 0.04) 0px 14px 28px,
+                 rgba(0, 0, 0, 0.05) 0px 23px 52px;
+
+  /* Spacing System - 8px base unit */
+  --space-xs: 2px;
+  --space-sm: 4px;
+  --space-md: 8px;
+  --space-lg: 12px;
+  --space-xl: 16px;
+  --space-2xl: 24px;
+  --space-3xl: 32px;
+
+  /* Border Radius */
+  --radius-micro: 4px;
+  --radius-standard: 8px;
+  --radius-card: 12px;
+  --radius-featured: 16px;
+  --radius-pill: 9999px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  width: 100%;
+  height: 100vh;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  font-size: calc(16px * var(--zoom));
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  overflow-y: auto;
+}
+
+.app {
+  width: 100%;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ===== TYPOGRAPHY HIERARCHY ===== */
+
+/* Display Hero: 64px, weight 700, line-height 1.00, letter-spacing -2.125px */
+/* Display Secondary: 54px, weight 700, line-height 1.04, letter-spacing -1.875px */
+/* Section Heading: 48px, weight 700, line-height 1.00, letter-spacing -1.5px */
+/* Sub-heading Large: 40px, weight 700, line-height 1.50 */
+/* Sub-heading: 26px, weight 700, line-height 1.23, letter-spacing -0.625px */
+/* Card Title: 22px, weight 700, line-height 1.27, letter-spacing -0.25px */
+/* Body Large: 20px, weight 600, line-height 1.40, letter-spacing -0.125px */
+/* Body: 16px, weight 400, line-height 1.50 */
+/* Body Medium/Semibold: 16px, weight 500/600, line-height 1.50 */
+/* Nav/Button: 15px, weight 600, line-height 1.33 */
+/* Caption: 14px, weight 500, line-height 1.43 */
+/* Caption Light: 14px, weight 400, line-height 1.43 */
+/* Badge: 12px, weight 600, line-height 1.33, letter-spacing 0.125px */
+/* Micro Label: 12px, weight 400, line-height 1.33, letter-spacing 0.125px */
+
+/* ===== DARK MODE ===== */
+
+body.dark-mode {
+  --color-bg: #111111;
+  --color-bg-subtle: #1a1a1a;
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #888888;
+  --color-text-muted: #666666;
+  --color-border: #333333;
+
+  /* Primary Accent - Keep Notion Blue */
+  --color-primary: #0075de;
+  --color-primary-hover: #0063b8;
+  --color-primary-focus: #0086ff;
+
+  /* Semantic Colors - Dark adjusted */
+  --color-success: #16A34A;
+  --color-teal: #00B8B8;
+  --color-warning: #FF9500;
+  --color-danger: #DC2626;
+  --color-pink: #FF64C8;
+  --color-purple: #9D4EDD;
+  --color-brown: #665533;
+
+  /* Badge Colors - Dark adjusted */
+  --color-badge-bg: #1f3a52;
+  --color-badge-text: #62aef0;
+
+  /* Shadows - Adjusted for dark mode */
+  --shadow-card: rgba(0, 0, 0, 0.3) 0px 4px 18px,
+                 rgba(0, 0, 0, 0.2) 0px 2.025px 7.84688px,
+                 rgba(0, 0, 0, 0.15) 0px 0.8px 2.925px,
+                 rgba(0, 0, 0, 0.1) 0px 0.175px 1.04062px;
+
+  --shadow-deep: rgba(0, 0, 0, 0.3) 0px 1px 3px,
+                 rgba(0, 0, 0, 0.35) 0px 3px 7px,
+                 rgba(0, 0, 0, 0.35) 0px 7px 15px,
+                 rgba(0, 0, 0, 0.4) 0px 14px 28px,
+                 rgba(0, 0, 0, 0.5) 0px 23px 52px;
+}
