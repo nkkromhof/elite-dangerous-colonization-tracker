@@ -557,6 +557,7 @@ function renderAllTab() {
   elements.constructionCard.className = 'construction-card';
 
   // Aggregate commodities by name across all active constructions
+  // Also track per-site remaining quantities for delivering phase
   const commodityMap = new Map();
   for (const construction of activeConstructions) {
     for (const cm of construction.commodities) {
@@ -568,11 +569,19 @@ function renderAllTab() {
           nearest_station: cm.nearest_station,
           nearest_system: cm.nearest_system,
           nearest_supply: cm.nearest_supply,
+          sites: new Map(), // Track per-construction remaining
         });
       }
       const agg = commodityMap.get(cm.name);
       agg.amount_required += cm.amount_required;
       agg.amount_delivered += cm.amount_delivered;
+      // Track remaining for this specific construction
+      const remaining = cm.amount_required - cm.amount_delivered;
+      agg.sites.set(construction.id, {
+        remaining,
+        station_name: construction.station_name,
+        system_name: construction.system_name,
+      });
       // Keep the entry with the highest known supply
       if (cm.nearest_supply != null &&
           (agg.nearest_supply == null || cm.nearest_supply > agg.nearest_supply)) {
@@ -629,34 +638,57 @@ function renderAllTab() {
 
     const totalFc = state.cargo.fc.reduce((s, c) => s + (commodityMap.has(c.name) ? c.count : 0), 0);
 
+    // Generate pivot table headers
+    let headerHtml = '<tr><th class="col-check"></th><th>NAME</th><th>CARRIER</th>';
+    for (const construction of activeConstructions) {
+      const parsed = parseStationName(construction.station_name);
+      const shortName = parsed.split(/\s+/)[0]; // First word only
+      headerHtml += `<th>${shortName}</th>`;
+    }
+    headerHtml += '</tr>';
+
     html = `
       ${phaseToggle}
       <table class="commodity-table">
         <thead>
-          <tr>
-            <th class="col-check"></th>
-            <th>NAME</th>
-            <th>CARRIER</th>
-          </tr>
+          ${headerHtml}
         </thead>
         <tbody>
           <tr class="totals-row">
             <td></td>
             <td>Totals</td>
             <td class="${totalFc > 0 ? 'col-carrier' : 'col-zero'}">${totalFc > 0 ? totalFc : '—'}</td>
+            ${activeConstructions.map(() => '<td></td>').join('')}
           </tr>
     `;
 
     commodities.forEach(c => {
       const cargo = getCargoForCommodity(c.name);
       const done = cargo.fc === 0;
-      html += `
-        <tr class="commodity-row ${done ? 'row-done' : ''}">
-          <td class="col-check">${done ? '✓' : ''}</td>
+      
+      // Calculate if all sites are done for this commodity
+      const allSitesDone = activeConstructions.every(con => {
+        const siteData = c.sites.get(con.id);
+        return !siteData || siteData.remaining === 0;
+      });
+      
+      let rowHtml = `
+        <tr class="commodity-row ${allSitesDone ? 'row-done' : ''}">
+          <td class="col-check">${allSitesDone ? '✓' : ''}</td>
           <td class="commodity-name">${c.name}</td>
           <td>${done ? '' : cargo.fc > 0 ? `<span class="col-carrier">${cargo.fc}</span>` : '—'}</td>
-        </tr>
       `;
+      
+      // Add per-construction remaining columns
+      for (const construction of activeConstructions) {
+        const siteData = c.sites.get(construction.id);
+        const remaining = siteData ? siteData.remaining : 0;
+        const display = remaining > 0 ? `<span class="col-remaining">${remaining}</span>` : (remaining === 0 ? '✓' : '—');
+        rowHtml += `<td>${display}</td>`;
+      }
+      
+      rowHtml += '</tr>';
+      html += rowHtml;
     });
   } else {
     const totals = {

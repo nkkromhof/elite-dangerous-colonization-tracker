@@ -349,13 +349,12 @@ html, body {
 .tabs-container {
   background: var(--color-bg-subtle);
   border-bottom: 1px solid var(--color-border);
-  padding: 0 var(--space-2xl);
+  padding: var(--space-xl) var(--space-2xl) 0;
   display: flex;
   gap: 0;
   overflow-x: auto;
   overflow-y: hidden;
   flex-shrink: 0;
-  margin-top: var(--space-xl);
 }
 
 .tab {
@@ -648,7 +647,6 @@ html, body {
 
 .commodity-row .commodity-name {
   font-weight: 600;
-  padding-left: 1.5rem;
 }
 
 .nearest-station.copyable {
