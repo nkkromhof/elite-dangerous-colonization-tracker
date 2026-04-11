@@ -247,3 +247,33 @@ bun run index.js
 ED_JOURNAL_DIR=/path/to/journal bun run index.js
 PORT=8080 DB_PATH=/tmp/test.db bun run index.js
 ```
+
+## Design Guidelines
+
+**[DESIGN.md](DESIGN.md) is the authoritative source for all frontend design decisions** in this project.
+
+The design system is inspired by Notion and covers:
+- Visual theme & atmosphere (typography, colors, spacing)
+- Color palette & roles (semantic colors, interactive states)
+- Typography rules (font hierarchy, weights, sizing)
+- Component stylings (buttons, inputs, cards, etc.)
+- Layout patterns and interaction principles
+
+### Frontend Work Requirements
+
+When modifying the frontend or adding new UI components:
+
+1. **Follow DESIGN.md guidelines** — All visual components must comply with the established design system.
+2. **Maintain consistency** — Use the specified color palette, typography scales, spacing units, and component patterns.
+3. **Respect component behavior** — Interactive elements should follow the defined states (hover, active, focus).
+4. **Question deviations** — If a design decision requires deviation from DESIGN.md, consult the user before implementing.
+
+### Deviation Protocol
+
+If you believe a deviation from DESIGN.md is necessary:
+
+- **State the reason clearly** — Explain why the established guideline doesn't work for the feature.
+- **Propose an alternative** — Suggest a specific design approach that aligns with the overall visual language.
+- **Wait for approval** — Do not implement the deviation until the user confirms it's acceptable.
+
+This ensures the design system remains coherent while remaining flexible for legitimate edge cases.
