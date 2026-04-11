@@ -514,7 +514,8 @@ function parseStationName(name) {
 function renderTabs() {
   const activeConstructions = getActiveConstructions();
   const isAllTabActive = state.activeConstructionId === ALL_TAB_ID;
-  const allTabHtml = `<div class="tab ${isAllTabActive ? 'active' : ''}" data-id="${ALL_TAB_ID}"><span>Fleet Carrier</span></div>`;
+  const phaseLabel = state.collectionPhase === 'delivering' ? 'Delivering' : 'Collecting';
+  const allTabHtml = `<div class="tab ${isAllTabActive ? 'active' : ''}" data-id="${ALL_TAB_ID}"><div class="tab-content"><span class="tab-name">Fleet Carrier</span><span class="tab-type">${phaseLabel}</span></div></div>`;
 
   const constructionTabsHtml = state.constructions.map(c => {
     const isActive = c.id === state.activeConstructionId;
@@ -658,7 +659,13 @@ function renderAllTab() {
             <td></td>
             <td>Totals</td>
             <td class="${totalFc > 0 ? 'col-carrier' : 'col-zero'}">${totalFc > 0 ? totalFc : '—'}</td>
-            ${activeConstructions.map(() => '<td></td>').join('')}
+            ${activeConstructions.map(construction => {
+              const totalRemaining = commodities.reduce((sum, c) => {
+                const siteData = c.sites.get(construction.id);
+                return sum + (siteData ? siteData.remaining : 0);
+              }, 0);
+              return `<td>${totalRemaining > 0 ? `<span class="col-remaining">${totalRemaining}</span>` : '—'}</td>`;
+            }).join('')}
           </tr>
     `;
 
@@ -767,6 +774,7 @@ function renderAllTab() {
     btn.addEventListener('click', () => {
       state.collectionPhase = btn.dataset.phase;
       localStorage.setItem('ed-tracker-collection-phase', state.collectionPhase);
+      renderTabs();
       renderAllTab();
     });
   });
