@@ -1,6 +1,7 @@
 <script>
   import CommodityTable from '../commodities/CommodityTable.svelte';
   import CommodityRow from '../commodities/CommodityRow.svelte';
+  import StationBar from '../commodities/StationBar.svelte';
   import { getActive, computeStationGroups } from '../../stores/constructions.svelte.js';
   import { getFcCargo, getShipCargo } from '../../stores/cargo.svelte.js';
   import { isCommodityComplete } from '../../utils/format.js';
@@ -83,6 +84,7 @@
     {#if sortedCommodities.length === 0}
       <p class="scan-hint">Open <strong>Construction Services</strong> while docked to retrieve the required commodities list.</p>
     {:else}
+    <StationBar {stationGroups} />
     <CommodityTable
       headers={construction.type === 'manual'
         ? ['NAME', 'REMAINING', 'TOTAL', 'CARRIER', 'SHIP', '']
@@ -100,7 +102,6 @@
         <CommodityRow
           {commodity}
           mode="single-site"
-          {stationGroups}
           allowStepper={true}
           onRemove={construction.type === 'manual' ? handleRemoveCommodity : null}
         />

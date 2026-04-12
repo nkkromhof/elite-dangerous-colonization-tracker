@@ -69,6 +69,7 @@ CREATE TABLE IF NOT EXISTS slot_lookup_cache (
   station    TEXT,
   system     TEXT,
   supply     INTEGER,
+  distance_ly REAL,
   queried_at TEXT
 );
 
@@ -139,7 +140,7 @@ CREATE TABLE IF NOT EXISTS commodity_station_results (
 CREATE INDEX IF NOT EXISTS idx_csr_lookup ON commodity_station_results (name_internal, reference_system, distance_ly);
 `;
 
-const CURRENT_VERSION = 12;
+const CURRENT_VERSION = 13;
 
 // ── Legacy Migrations ───────────────────────────────────────────────────────
 // These run only when upgrading an existing database from a previous version.
@@ -325,6 +326,11 @@ const MIGRATIONS = [
     for (const [key, name] of Object.entries(COMMODITY_DISPLAY_NAMES)) {
       stmt.run(name, ts, `$${key}_Name;`);
     }
+  },
+
+  // v12 → v13: Add distance_ly to slot_lookup_cache
+  function v13_addDistanceLy(db) {
+    db.run(`ALTER TABLE slot_lookup_cache ADD COLUMN distance_ly REAL`);
   },
 ];
 

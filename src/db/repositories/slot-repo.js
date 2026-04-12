@@ -23,7 +23,7 @@ export function upsertCommoditySlot({ id, construction_id, name, name_internal, 
 export function getCommoditySlots(constructionId) {
   return getDb().query(
     `SELECT cs.*, lc.station AS nearest_station, lc.system AS nearest_system,
-            lc.supply AS nearest_supply, lc.queried_at AS nearest_queried_at
+            lc.supply AS nearest_supply, lc.distance_ly AS nearest_distance, lc.queried_at AS nearest_queried_at
      FROM commodity_slots cs
      LEFT JOIN slot_lookup_cache lc ON lc.slot_id = cs.id
      WHERE cs.construction_id = ?`
@@ -33,7 +33,17 @@ export function getCommoditySlots(constructionId) {
 export function getCommoditySlot(constructionId, name) {
   return getDb().query(
     `SELECT cs.*, lc.station AS nearest_station, lc.system AS nearest_system,
-            lc.supply AS nearest_supply, lc.queried_at AS nearest_queried_at
+            lc.supply AS nearest_supply, lc.distance_ly AS nearest_distance, lc.queried_at AS nearest_queried_at
+     FROM commodity_slots cs
+     LEFT JOIN slot_lookup_cache lc ON lc.slot_id = cs.id
+     WHERE cs.construction_id = ? AND cs.name = ?`
+  ).get(constructionId, name);
+}
+
+export function getCommoditySlot(constructionId, name) {
+  return getDb().query(
+    `SELECT cs.*, lc.station AS nearest_station, lc.system AS nearest_system,
+            lc.supply AS nearest_supply, lc.distance_ly AS nearest_distance, lc.queried_at AS nearest_queried_at
      FROM commodity_slots cs
      LEFT JOIN slot_lookup_cache lc ON lc.slot_id = cs.id
      WHERE cs.construction_id = ? AND cs.name = ?`
@@ -60,12 +70,12 @@ export function setDelivered(constructionId, commodityName, amount) {
   );
 }
 
-export function updateNearestStation(constructionId, commodityName, { station, system, supply, queriedAt }) {
+export function updateNearestStation(constructionId, commodityName, { station, system, supply, distanceLy, queriedAt }) {
   const slot = getDb().query(
     `SELECT id FROM commodity_slots WHERE construction_id = ? AND name = ?`
   ).get(constructionId, commodityName);
   if (!slot) return;
-  upsertLookupCache(slot.id, { station, system, supply, queriedAt });
+  upsertLookupCache(slot.id, { station, system, supply, distanceLy, queriedAt });
 }
 
 export function clearFailedStationLookups(constructionId) {
@@ -76,21 +86,21 @@ export function clearAllStationLookups(constructionId) {
   clearLookupCacheAll(constructionId);
 }
 
-export function upsertLookupCache(slotId, { station, system, supply, queriedAt }) {
+export function upsertLookupCache(slotId, { station, system, supply, distanceLy, queriedAt }) {
   const db = getDb();
   if (queriedAt === null || queriedAt === undefined) {
     db.run(
-      `INSERT INTO slot_lookup_cache (slot_id, station, system, supply, queried_at)
-       VALUES (?, NULL, NULL, NULL, NULL)
-       ON CONFLICT(slot_id) DO UPDATE SET station = NULL, system = NULL, supply = NULL`,
+      `INSERT INTO slot_lookup_cache (slot_id, station, system, supply, distance_ly, queried_at)
+       VALUES (?, NULL, NULL, NULL, NULL, NULL)
+       ON CONFLICT(slot_id) DO UPDATE SET station = NULL, system = NULL, supply = NULL, distance_ly = NULL`,
       [slotId]
     );
   } else {
     db.run(
-      `INSERT INTO slot_lookup_cache (slot_id, station, system, supply, queried_at)
-       VALUES (?, ?, ?, ?, ?)
-       ON CONFLICT(slot_id) DO UPDATE SET station = excluded.station, system = excluded.system, supply = excluded.supply, queried_at = excluded.queried_at`,
-      [slotId, station ?? null, system ?? null, supply ?? null, queriedAt]
+      `INSERT INTO slot_lookup_cache (slot_id, station, system, supply, distance_ly, queried_at)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT(slot_id) DO UPDATE SET station = excluded.station, system = excluded.system, supply = excluded.supply, distance_ly = excluded.distance_ly, queried_at = excluded.queried_at`,
+      [slotId, station ?? null, system ?? null, supply ?? null, distanceLy ?? null, queriedAt]
     );
   }
 }

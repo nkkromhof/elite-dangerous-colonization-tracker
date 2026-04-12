@@ -29,7 +29,7 @@
  *   Minimum supply-to-demand ratio for Pass 1.
  * @param {number} [params.staleSupplyMultiplier=20]
  *   Minimum supply-to-demand ratio for Pass 2 (stale-but-abundant).
- * @returns {{ assignments: Map<string, {station: string, system: string, supply: number|null, lowSupply: boolean, isStale: boolean}>, unassigned: string[] }}
+ * @returns {{ assignments: Map<string, {station: string, system: string, supply: number|null, distanceLy: number, lowSupply: boolean, isStale: boolean}>, unassigned: string[] }}
  */
 export function analyzeOneStop({ neededSlots, stationMap, supplyMultiplier = 3, staleSupplyMultiplier = 20 }) {
   if (stationMap.size === 0) {
@@ -91,6 +91,7 @@ export function analyzeOneStop({ neededSlots, stationMap, supplyMultiplier = 3, 
         station: candidate.station,
         system: candidate.system,
         supply,
+        distanceLy: candidate.distanceLy,
         lowSupply: false,
         isStale: false,
       });
@@ -115,6 +116,7 @@ export function analyzeOneStop({ neededSlots, stationMap, supplyMultiplier = 3, 
           station: candidate.station,
           system: candidate.system,
           supply,
+          distanceLy: candidate.distanceLy,
           lowSupply: false,
           isStale: true,
         });
@@ -147,6 +149,7 @@ export function analyzeOneStop({ neededSlots, stationMap, supplyMultiplier = 3, 
         station: bestStation.station,
         system: bestStation.system,
         supply: bestStation.supply,
+        distanceLy: bestStation.distanceLy,
         lowSupply: true,
         isStale: bestStation.isStale,
       });

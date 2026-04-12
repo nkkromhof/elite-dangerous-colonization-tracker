@@ -6,56 +6,53 @@
   import { isCommodityComplete } from '../../utils/format.js';
   import { updateFcCargo } from '../../utils/api.js';
 
-  /**
-   * @type {{
-   *   commodity: Object,
-   *   mode: 'collecting' | 'delivering' | 'single-site',
-   *   stationGroups?: Map,
-   *   activeConstructions?: Array,
-   *   allowStepper?: boolean
-   * }}
-   */
-  let { commodity, mode, stationGroups = new Map(), activeConstructions = [], allowStepper = false, onRemove = null } = $props();
+/**
+ * @type {{
+ *   commodity: Object,
+ *   mode: 'collecting' | 'delivering' | 'single-site',
+ *   activeConstructions?: Array,
+ *   allowStepper?: boolean
+ * }}
+ */
+let { commodity, mode, activeConstructions = [], allowStepper = false, onRemove = null } = $props();
 
-  let done = $derived(isCommodityComplete(commodity));
-  let available = $derived(!done && isAvailableAtStation(commodity.name));
-  let cargo = $derived(getCargoForCommodity(commodity.name));
-  let editing = $state(false);
+let done = $derived(isCommodityComplete(commodity));
+let available = $derived(!done && isAvailableAtStation(commodity.name));
+let cargo = $derived(getCargoForCommodity(commodity.name));
+let editing = $state(false);
 
-  // Collecting mode
-  let remaining = $derived(Math.max(0, commodity.amount_required - commodity.amount_delivered));
-  let gap = $derived(commodity.amount_required - cargo.fc - cargo.ship);
-  let collectingDone = $derived(remaining === 0 || (cargo.fc + cargo.ship) >= remaining);
-  let gapDisplay = $derived(gap <= 0 ? (gap === 0 ? '✓' : `+${Math.abs(gap)}`) : gap);
+let remaining = $derived(Math.max(0, commodity.amount_required - commodity.amount_delivered));
+let gap = $derived(commodity.amount_required - cargo.fc - cargo.ship);
+let collectingDone = $derived(remaining === 0 || (cargo.fc + cargo.ship) >= remaining);
+let gapDisplay = $derived(gap <= 0 ? (gap === 0 ? '✓' : `+${Math.abs(gap)}`) : gap);
 
-  // Delivering mode
-  let allSitesDone = $derived(
-    mode === 'delivering'
-      ? activeConstructions.every(con => {
-          const siteData = commodity.sites?.get(con.id);
-          return !siteData || siteData.remaining === 0;
-        })
-      : done
-  );
+let allSitesDone = $derived(
+  mode === 'delivering'
+    ? activeConstructions.every(con => {
+        const siteData = commodity.sites?.get(con.id);
+        return !siteData || siteData.remaining === 0;
+      })
+    : done
+);
 
-  let showRow = $derived(mode === 'collecting' ? collectingDone : allSitesDone);
-  let showStation = $derived(
-    mode === 'collecting' && !collectingDone && commodity.nearest_station
-  );
-  let showSingleSiteStation = $derived(
-    mode === 'single-site' && !done && remaining > 0 && (cargo.fc + cargo.ship) < remaining && commodity.nearest_station
-  );
+let showRow = $derived(mode === 'collecting' ? collectingDone : allSitesDone);
+let showStation = $derived(
+  mode === 'collecting' && !collectingDone && commodity.nearest_station
+);
+let showSingleSiteStation = $derived(
+  mode === 'single-site' && !done && remaining > 0 && (cargo.fc + cargo.ship) < remaining && commodity.nearest_station
+);
 
-  async function handleStepperSave(newValue) {
-    editing = false;
-    if (newValue === null) return;
-    await updateFcCargo(commodity.name, newValue);
-  }
+async function handleStepperSave(newValue) {
+  editing = false;
+  if (newValue === null) return;
+  await updateFcCargo(commodity.name, newValue);
+}
 
-  function handleCarrierClick() {
-    if (!allowStepper || editing) return;
-    editing = true;
-  }
+function handleCarrierClick() {
+  if (!allowStepper || editing) return;
+  editing = true;
+}
 </script>
 
 <tr class="commodity-row" class:row-done={mode === 'delivering' ? allSitesDone : (mode === 'collecting' ? collectingDone : done)} class:available-here={available}>
@@ -63,10 +60,10 @@
   <td class="commodity-name">
     {commodity.name}
     {#if showStation}
-      <StationBadge {commodity} {stationGroups} />
+      <StationBadge {commodity} />
     {/if}
     {#if showSingleSiteStation}
-      <StationBadge {commodity} {stationGroups} />
+      <StationBadge {commodity} />
     {/if}
   </td>
 

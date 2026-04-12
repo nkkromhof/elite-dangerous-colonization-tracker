@@ -1,5 +1,5 @@
 import { getCargoForCommodity, getFcCargo, getShipCargo } from './cargo.svelte.js';
-import { isCommodityComplete, isLowSupply } from '../utils/format.js';
+import { isCommodityComplete } from '../utils/format.js';
 
 const ALL_TAB_ID = 'all';
 
@@ -130,6 +130,7 @@ export function getAggregatedCommodities() {
           nearest_station: cm.nearest_station,
           nearest_system: cm.nearest_system,
           nearest_supply: cm.nearest_supply,
+          nearest_distance: cm.nearest_distance,
           sites: new Map(),
         });
       }
@@ -147,6 +148,7 @@ export function getAggregatedCommodities() {
         agg.nearest_station = cm.nearest_station;
         agg.nearest_system = cm.nearest_system;
         agg.nearest_supply = cm.nearest_supply;
+        agg.nearest_distance = cm.nearest_distance;
       }
     }
   }
@@ -156,7 +158,7 @@ export function getAggregatedCommodities() {
 /**
  * Group commodities by their nearest station for badge display.
  * @param {Array} commodities
- * @returns {Map<string, { station: string, system: string, count: number }>}
+ * @returns {Map<string, { station: string, system: string, distance: number|null, count: number }>}
  */
 export function computeStationGroups(commodities) {
   const groups = new Map();
@@ -166,7 +168,7 @@ export function computeStationGroups(commodities) {
     if (remaining <= 0) continue;
     const key = `${c.nearest_station}|${c.nearest_system}`;
     if (!groups.has(key)) {
-      groups.set(key, { station: c.nearest_station, system: c.nearest_system, count: 0 });
+      groups.set(key, { station: c.nearest_station, system: c.nearest_system, distance: c.nearest_distance, count: 0 });
     }
     groups.get(key).count++;
   }

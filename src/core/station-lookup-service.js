@@ -250,7 +250,7 @@ export class StationLookupService {
     if (stationMap.size === 0) {
       const queriedAt = new Date().toISOString();
       for (const slot of neededSlots) {
-        this._record(constructionId, slot.name, null, null, null, queriedAt);
+        this._record(constructionId, slot.name, null, null, null, null, queriedAt);
       }
       return;
     }
@@ -261,9 +261,9 @@ export class StationLookupService {
     for (const slot of neededSlots) {
       const assignment = assignments.get(slot.name_internal);
       if (assignment) {
-        this._record(constructionId, slot.name, assignment.station, assignment.system, assignment.supply, queriedAt);
+        this._record(constructionId, slot.name, assignment.station, assignment.system, assignment.supply, assignment.distanceLy, queriedAt);
       } else {
-        this._record(constructionId, slot.name, null, null, null, queriedAt);
+        this._record(constructionId, slot.name, null, null, null, null, queriedAt);
       }
     }
 
@@ -316,11 +316,12 @@ export class StationLookupService {
   }
 
   /** Write a station result to DB for a single slot and notify the bus. */
-  _record(constructionId, commodityName, station, system, supply, queriedAt) {
+  _record(constructionId, commodityName, station, system, supply, distanceLy, queriedAt) {
     updateNearestStation(constructionId, commodityName, {
       station: station ?? null,
       system:  system  ?? null,
       supply:  supply  ?? null,
+      distanceLy: distanceLy ?? null,
       queriedAt,
     });
     const updated = getCommoditySlot(constructionId, commodityName);

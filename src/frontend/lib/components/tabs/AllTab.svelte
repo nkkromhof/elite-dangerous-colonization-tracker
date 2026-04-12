@@ -2,6 +2,7 @@
   import CommodityTable from '../commodities/CommodityTable.svelte';
   import CommodityRow from '../commodities/CommodityRow.svelte';
   import PhaseToggle from '../controls/PhaseToggle.svelte';
+  import StationBar from '../commodities/StationBar.svelte';
   import {
     getAggregatedCommodities,
     getActiveConstructions,
@@ -109,10 +110,11 @@
     ]}
   >
     {#each sortedCommodities as commodity (commodity.name)}
-      <CommodityRow {commodity} mode="delivering" {stationGroups} {activeConstructions} allowStepper={true} />
+      <CommodityRow {commodity} mode="delivering" {activeConstructions} allowStepper={true} />
     {/each}
   </CommodityTable>
 {:else}
+  <StationBar {stationGroups} />
   <CommodityTable
     headers={['NAME', 'TOTAL', 'CARRIER', 'REMAINING', 'SHIP']}
     totals={[
@@ -124,7 +126,7 @@
     ]}
   >
     {#each sortedCommodities as commodity (commodity.name)}
-      <CommodityRow {commodity} mode="collecting" {stationGroups} allowStepper={true} />
+      <CommodityRow {commodity} mode="collecting" allowStepper={true} />
     {/each}
   </CommodityTable>
 {/if}
