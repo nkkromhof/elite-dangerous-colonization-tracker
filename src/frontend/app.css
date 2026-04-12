@@ -2,6 +2,7 @@
 
 :root {
   --zoom: 1;
+  --vr-scale: 1;
 
   /* Color Palette - Notion Inspired */
   --color-bg: #ffffff;
@@ -74,7 +75,7 @@ html, body {
   width: 100%;
   height: 100vh;
   font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-  font-size: calc(16px * var(--zoom));
+  font-size: calc(16px * var(--vr-scale) * var(--zoom));
   background: var(--color-bg);
   color: var(--color-text-primary);
   overflow-y: auto;
@@ -146,4 +147,17 @@ body.dark-mode {
                  rgba(0, 0, 0, 0.35) 0px 7px 15px,
                  rgba(0, 0, 0, 0.4) 0px 14px 28px,
                  rgba(0, 0, 0, 0.5) 0px 23px 52px;
+}
+
+/* ===== VR MODE ===== */
+
+body.vr-mode {
+  --vr-scale: 1.5;
+  --space-xs: 3px;
+  --space-sm: 6px;
+  --space-md: 12px;
+  --space-lg: 18px;
+  --space-xl: 24px;
+  --space-2xl: 36px;
+  --space-3xl: 48px;
 }
