@@ -1,6 +1,6 @@
 import { lookupNearestStation } from './inara-lookup.js';
 import { updateNearestStation, getCommoditySlot, clearFailedStationLookups, clearAllStationLookups } from '../db/repositories/slot-repo.js';
-import { getCachedStationResults, replaceStationResults, getStationResultsForCommodities, purgeStaleStationResults } from '../db/repositories/market-cache-repo.js';
+import { getCachedStationResults, replaceStationResults, getStationResultsForCommodities, purgeStaleStationResults, getSystemCoordinates, findCachedStationsForCommodityLenient } from '../db/repositories/market-cache-repo.js';
 import { analyzeOneStop } from './one-stop-analyzer.js';
 import { config } from '../config.js';
 import { emitError } from './event-bus.js';
@@ -14,6 +14,12 @@ const REQUEST_DELAY_MS   = 5_000;
 const RETRY_DELAY_MS      = 60_000;
 // How long cached station results remain valid
 const CSR_MAX_AGE_HOURS   = 24;
+// Local market cache: age in days for the fresh tier (any stock accepted)
+const LOCAL_FRESH_MAX_AGE_DAYS = 7;
+// Local market cache: age in days for the stale tier (high stock only)
+const STALE_MAX_AGE_DAYS = 30;
+// Stale tier: minimum supply-to-demand ratio for accepting stale local data
+const STALE_SUPPLY_MULTIPLIER = 20;
 
 export class StationLookupService {
   /**
@@ -224,7 +230,8 @@ export class StationLookupService {
 
   /**
    * Run one-stop analysis for a construction using the extracted analyzer.
-   * Reads needed slots and cached station data, delegates to analyzeOneStop(),
+   * Reads needed slots and cached station data from both Inara results and
+   * the local market cache, merges them, delegates to analyzeOneStop(),
    * then writes results back to the DB and notifies the event bus.
    */
   _runOneStopAnalysis(constructionId) {
@@ -238,6 +245,8 @@ export class StationLookupService {
     const nameInternals = neededSlots.map(s => s.name_internal);
     const stationMap = getStationResultsForCommodities(nameInternals, construction.system_name, CSR_MAX_AGE_HOURS);
 
+    this._mergeLocalMarketCache(stationMap, neededSlots, construction.system_name);
+
     if (stationMap.size === 0) {
       const queriedAt = new Date().toISOString();
       for (const slot of neededSlots) {
@@ -246,7 +255,7 @@ export class StationLookupService {
       return;
     }
 
-    const { assignments } = analyzeOneStop({ neededSlots, stationMap });
+    const { assignments } = analyzeOneStop({ neededSlots, stationMap, staleSupplyMultiplier: STALE_SUPPLY_MULTIPLIER });
 
     const queriedAt = new Date().toISOString();
     for (const slot of neededSlots) {
@@ -259,7 +268,51 @@ export class StationLookupService {
     }
 
     const covered = assignments.size;
-    logger.info(TAG, `One-stop analysis for construction ${constructionId}: ${covered}/${neededSlots.length} commodities assigned, ${stationMap.size} candidate stations`);
+    const staleCount = [...assignments.values()].filter(a => a.isStale).length;
+    logger.info(TAG, `One-stop analysis for construction ${constructionId}: ${covered}/${neededSlots.length} commodities assigned, ${stationMap.size} candidate stations${staleCount > 0 ? ` (${staleCount} from stale local data)` : ''}`);
+  }
+
+  /**
+   * Merge local market cache stations into the stationMap.
+   * Skips stations already present from Inara data (authoritative).
+   * Stale entries are flagged with isStale for the analyzer to use in Pass 2.
+   */
+  _mergeLocalMarketCache(stationMap, neededSlots, referenceSystem) {
+    const coords = getSystemCoordinates(referenceSystem);
+    if (!coords) return;
+
+    const ownMarketId = this._cargoTracker?.getFcMarketId?.() ?? null;
+
+    for (const slot of neededSlots) {
+      if (!slot.name_internal) continue;
+      const remaining = slot.amount_required - slot.amount_delivered;
+      const staleMinSupply = STALE_SUPPLY_MULTIPLIER * remaining;
+
+      const localStations = findCachedStationsForCommodityLenient(
+        slot.name_internal,
+        LOCAL_FRESH_MAX_AGE_DAYS,
+        STALE_MAX_AGE_DAYS,
+        staleMinSupply,
+        coords.x, coords.y, coords.z,
+        ownMarketId,
+      );
+
+      for (const ls of localStations) {
+        const key = `${ls.stationName}|${ls.systemName}`;
+        if (stationMap.has(key)) continue;
+
+        if (!stationMap.has(key)) {
+          stationMap.set(key, {
+            station: ls.stationName,
+            system: ls.systemName,
+            distanceLy: ls.distanceLy,
+            commodities: new Map(),
+            isStale: ls.isStale,
+          });
+        }
+        stationMap.get(key).commodities.set(slot.name_internal, ls.stock);
+      }
+    }
   }
 
   /** Write a station result to DB for a single slot and notify the bus. */

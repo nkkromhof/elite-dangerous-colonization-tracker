@@ -32,6 +32,9 @@
   --color-badge-bg: #f2f9ff;
   --color-badge-text: #097fe8;
 
+  --color-in-stock-bg: rgba(26, 174, 57, 0.06);
+  --color-in-stock-badge-bg: rgba(26, 174, 57, 0.12);
+
   /* Shadows - Multi-layer stacks */
   --shadow-card: rgba(0, 0, 0, 0.04) 0px 4px 18px,
                  rgba(0, 0, 0, 0.027) 0px 2.025px 7.84688px,
@@ -128,6 +131,9 @@ body.dark-mode {
   /* Badge Colors - Dark adjusted */
   --color-badge-bg: #1f3a52;
   --color-badge-text: #62aef0;
+
+  --color-in-stock-bg: rgba(22, 163, 74, 0.18);
+  --color-in-stock-badge-bg: rgba(22, 163, 74, 0.25);
 
   /* Shadows - Adjusted for dark mode */
   --shadow-card: rgba(0, 0, 0, 0.3) 0px 4px 18px,

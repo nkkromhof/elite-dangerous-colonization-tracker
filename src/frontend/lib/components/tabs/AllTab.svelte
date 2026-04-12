@@ -11,6 +11,7 @@
   import { getCollectionPhase, setCollectionPhase } from '../../stores/ui.svelte.js';
   import { isCommodityComplete } from '../../utils/format.js';
   import { parseStationName } from '../../utils/format.js';
+  import { isAvailableAtStation } from '../../stores/station.svelte.js';
 
   let delivering = $derived(getCollectionPhase() === 'delivering');
   let activeConstructions = $derived(getActiveConstructions());
@@ -28,6 +29,14 @@
         const aDone = aFc === 0;
         const bDone = bFc === 0;
         if (aDone !== bDone) return aDone ? 1 : -1;
+        const aAvail = !aDone && isAvailableAtStation(a.name);
+        const bAvail = !bDone && isAvailableAtStation(b.name);
+        if (aAvail !== bAvail) return aAvail ? -1 : 1;
+        if (aAvail && bAvail) {
+          const aRem = a.amount_required - a.amount_delivered;
+          const bRem = b.amount_required - b.amount_delivered;
+          return bRem - aRem;
+        }
         return b.amount_required - a.amount_required;
       });
     } else {
@@ -41,6 +50,10 @@
         const aDone = aNeedsDelivered === 0 || (aFc + aShip) >= aNeedsDelivered;
         const bDone = bNeedsDelivered === 0 || (bFc + bShip) >= bNeedsDelivered;
         if (aDone !== bDone) return aDone ? 1 : -1;
+        const aAvail = !aDone && isAvailableAtStation(a.name);
+        const bAvail = !bDone && isAvailableAtStation(b.name);
+        if (aAvail !== bAvail) return aAvail ? -1 : 1;
+        if (aAvail && bAvail) return bNeedsDelivered - aNeedsDelivered;
         return b.amount_required - a.amount_required;
       });
     }
@@ -117,7 +130,7 @@
 {/if}
 
 <style>
-  :global(.col-total) { color: var(--color-text-primary); font-weight: 600; }
+  :global(.col-total) { color: var(--color-text-muted); }
   :global(.col-carrier) { color: var(--color-teal); font-weight: 600; }
   :global(.col-remaining) { color: var(--color-warning); font-weight: 600; }
   :global(.col-ship) { color: var(--color-primary); font-weight: 600; }

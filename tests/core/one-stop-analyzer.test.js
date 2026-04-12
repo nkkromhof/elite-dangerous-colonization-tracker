@@ -1,11 +1,10 @@
 import { describe, test, expect } from 'bun:test';
 import { analyzeOneStop } from '../../src/core/one-stop-analyzer.js';
 
-// Helper to build a stationMap entry
-function makeStation(station, system, distanceLy, commodities) {
+function makeStation(station, system, distanceLy, commodities, isStale = false) {
   const key = `${station}|${system}`;
   const commodityMap = new Map(Object.entries(commodities));
-  return [key, { station, system, distanceLy, commodities: commodityMap }];
+  return [key, { station, system, distanceLy, commodities: commodityMap, isStale }];
 }
 
 function makeSlot(name, nameInternal, required, delivered = 0) {
@@ -27,6 +26,7 @@ describe('analyzeOneStop', () => {
     expect(assignments.get('$steel').station).toBe('Hub');
     expect(assignments.get('$polymers').station).toBe('Hub');
     expect(assignments.get('$steel').lowSupply).toBe(false);
+    expect(assignments.get('$steel').isStale).toBe(false);
     expect(unassigned).toHaveLength(0);
   });
 
@@ -45,7 +45,6 @@ describe('analyzeOneStop', () => {
       makeSlot('Polymers', '$polymers', 50),
       makeSlot('Copper', '$copper', 30),
     ];
-    // StationA covers steel + polymers; StationB covers only copper
     const stationMap = new Map([
       makeStation('StationA', 'Sol', 20, { $steel: 500, $polymers: 200 }),
       makeStation('StationB', 'Alpha', 10, { $copper: 300 }),
@@ -59,7 +58,6 @@ describe('analyzeOneStop', () => {
 
   test('falls back to low-supply station when 3x rule not met', () => {
     const neededSlots = [makeSlot('Steel', '$steel', 100)];
-    // Supply of 200 < 3 * 100 = 300
     const stationMap = new Map([
       makeStation('LowStock', 'Sol', 10, { $steel: 200 }),
     ]);
@@ -96,16 +94,13 @@ describe('analyzeOneStop', () => {
 
   test('respects custom supplyMultiplier', () => {
     const neededSlots = [makeSlot('Steel', '$steel', 100)];
-    // Supply of 250 meets 2x (200) but not 3x (300)
     const stationMap = new Map([
       makeStation('Hub', 'Sol', 10, { $steel: 250 }),
     ]);
 
-    // With multiplier=2, it should be a strict assignment (not lowSupply)
     const result2x = analyzeOneStop({ neededSlots, stationMap, supplyMultiplier: 2 });
     expect(result2x.assignments.get('$steel').lowSupply).toBe(false);
 
-    // With default multiplier=3, it falls back to lowSupply
     const result3x = analyzeOneStop({ neededSlots, stationMap });
     expect(result3x.assignments.get('$steel').lowSupply).toBe(true);
   });
@@ -117,23 +112,82 @@ describe('analyzeOneStop', () => {
     ]);
 
     const { assignments } = analyzeOneStop({ neededSlots, stationMap });
-    // null supply can't meet 3x rule, falls back
     expect(assignments.get('$steel').lowSupply).toBe(true);
     expect(assignments.get('$steel').supply).toBeNull();
   });
 
   test('skips commodities already fully delivered', () => {
     const neededSlots = [
-      makeSlot('Steel', '$steel', 100, 100), // fully delivered
+      makeSlot('Steel', '$steel', 100, 100),
     ];
     const stationMap = new Map([
       makeStation('Hub', 'Sol', 10, { $steel: 500 }),
     ]);
 
-    // remaining = 0, so remainingAmounts.has() will still be true
-    // but the caller filters these out before calling — test the edge case
     const { assignments } = analyzeOneStop({ neededSlots, stationMap });
-    // remaining is 0, 3x rule: 500 >= 3*0 = 0, so it gets assigned
     expect(assignments.has('$steel')).toBe(true);
+  });
+
+  // ── Pass 2: stale-but-abundant ──────────────────────────────────────────
+
+  test('Pass 2 assigns stale station with abundant supply', () => {
+    const neededSlots = [makeSlot('Ceramic Composites', '$ceramiccomposites', 5000)];
+    const staleStation = makeStation('Blackiron Composites', 'Lupus Dark Region', 23, { $ceramiccomposites: 2_000_000 }, true);
+    const stationMap = new Map([staleStation]);
+
+    const { assignments } = analyzeOneStop({ neededSlots, stationMap });
+    expect(assignments.get('$ceramiccomposites').station).toBe('Blackiron Composites');
+    expect(assignments.get('$ceramiccomposites').isStale).toBe(true);
+    expect(assignments.get('$ceramiccomposites').lowSupply).toBe(false);
+  });
+
+  test('Pass 2 prefers closer stale station over farther stale station', () => {
+    const neededSlots = [makeSlot('Ceramic Composites', '$ceramiccomposites', 5000)];
+    const stationMap = new Map([
+      makeStation('FarStale', 'Far System', 50, { $ceramiccomposites: 5_000_000 }, true),
+      makeStation('NearStale', 'Near System', 23, { $ceramiccomposites: 2_000_000 }, true),
+    ]);
+
+    const { assignments } = analyzeOneStop({ neededSlots, stationMap });
+    expect(assignments.get('$ceramiccomposites').station).toBe('NearStale');
+  });
+
+  test('Pass 2 skips stale station with insufficient supply ratio', () => {
+    const neededSlots = [makeSlot('Ceramic Composites', '$ceramiccomposites', 5000)];
+    const stationMap = new Map([
+      makeStation('LowStale', 'System', 23, { $ceramiccomposites: 50_000 }, true),
+    ]);
+
+    const { assignments } = analyzeOneStop({ neededSlots, stationMap });
+    // 50K / 5000 = 10x, which is less than staleSupplyMultiplier=20, so it falls to Pass 3
+    expect(assignments.get('$ceramiccomposites').isStale).toBe(true);
+    expect(assignments.get('$ceramiccomposites').lowSupply).toBe(true);
+  });
+
+  test('Pass 1 fresh station is preferred over stale station with same supply', () => {
+    const neededSlots = [makeSlot('Steel', '$steel', 100)];
+    const stationMap = new Map([
+      makeStation('FreshHub', 'Sol', 50, { $steel: 500 }, false),
+      makeStation('StaleHub', 'Alpha', 10, { $steel: 500 }, true),
+    ]);
+
+    const { assignments } = analyzeOneStop({ neededSlots, stationMap });
+    expect(assignments.get('$steel').station).toBe('FreshHub');
+    expect(assignments.get('$steel').isStale).toBe(false);
+  });
+
+  // ── Pass 3: distance-aware fallback ─────────────────────────────────────
+
+  test('Pass 3 prefers nearby station via supply/distance score over far station with higher supply', () => {
+    const neededSlots = [makeSlot('Steel', '$steel', 100)];
+    const stationMap = new Map([
+      makeStation('FarHighSupply', 'Far System', 50, { $steel: 200 }),
+      makeStation('NearModerate', 'Near System', 23, { $steel: 150 }),
+    ]);
+
+    const { assignments } = analyzeOneStop({ neededSlots, stationMap });
+    // NearModerate score: 150/24 ≈ 6.25; FarHighSupply score: 200/51 ≈ 3.92
+    expect(assignments.get('$steel').station).toBe('NearModerate');
+    expect(assignments.get('$steel').lowSupply).toBe(true);
   });
 });

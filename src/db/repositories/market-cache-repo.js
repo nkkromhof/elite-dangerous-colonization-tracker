@@ -101,6 +101,67 @@ export function findCachedStationsForCommodity(nameInternal, maxAgeDays, tx, ty,
   return results;
 }
 
+/**
+ * Find cached stations selling a commodity with a two-tier age policy.
+ *
+ * Fresh tier: stations recorded within `freshMaxAgeDays` — included if stock > 0.
+ * Stale tier: stations recorded within `staleMaxAgeDays` — included only if stock >= staleMinSupply.
+ *
+ * @param {string} nameInternal
+ * @param {number} freshMaxAgeDays   age cutoff for the fresh tier
+ * @param {number} staleMaxAgeDays   age cutoff for the stale tier
+ * @param {number} staleMinSupply    minimum stock required for stale entries
+ * @param {number} tx  target x coordinate
+ * @param {number} ty  target y coordinate
+ * @param {number} tz  target z coordinate
+ * @param {number|null} [excludeMarketId]  market ID to exclude (e.g. player's own carrier)
+ * @returns {{ stationName: string, systemName: string, stock: number, distanceLy: number, isStale: boolean }[]}
+ */
+export function findCachedStationsForCommodityLenient(nameInternal, freshMaxAgeDays, staleMaxAgeDays, staleMinSupply, tx, ty, tz, excludeMarketId = null) {
+  const freshCutoff = new Date(Date.now() - freshMaxAgeDays * 24 * 60 * 60 * 1000).toISOString();
+  const staleCutoff = new Date(Date.now() - staleMaxAgeDays * 24 * 60 * 60 * 1000).toISOString();
+  const db = getDb();
+
+  const excludeClause = excludeMarketId != null ? 'AND s.market_id != ?' : '';
+  const params = excludeMarketId != null
+    ? [nameInternal, freshCutoff, nameInternal, staleCutoff, staleMinSupply, excludeMarketId]
+    : [nameInternal, freshCutoff, nameInternal, staleCutoff, staleMinSupply];
+
+  const rows = db.query(
+    `SELECT s.market_id, s.station_name, s.system_name,
+            s.x, s.y, s.z, i.stock, s.recorded_at,
+            CASE WHEN s.recorded_at > ? THEN 0 ELSE 1 END AS is_stale
+     FROM market_inventory_index i
+     JOIN station_market_cache s ON s.market_id = i.market_id
+     WHERE i.name_internal = ?
+       AND s.x IS NOT NULL
+       AND (s.station_type IS NULL OR s.station_type != 'FleetCarrier')
+       AND (
+         (s.recorded_at > ? AND i.stock > 0)
+         OR
+         (s.recorded_at > ? AND i.stock >= ?)
+       )
+       ${excludeClause}`
+  ).all(...params);
+
+  const seen = new Set();
+  const results = [];
+  for (const row of rows) {
+    if (seen.has(row.market_id)) continue;
+    seen.add(row.market_id);
+    const dx = row.x - tx, dy = row.y - ty, dz = row.z - tz;
+    results.push({
+      stationName: row.station_name,
+      systemName: row.system_name,
+      stock: row.stock,
+      distanceLy: Math.sqrt(dx * dx + dy * dy + dz * dz),
+      isStale: row.is_stale === 1,
+    });
+  }
+  results.sort((a, b) => a.distanceLy - b.distanceLy);
+  return results;
+}
+
 // ── Commodity station results cache ──────────────────────────────────────────
 
 const CSR_MAX_AGE_HOURS = 24;

@@ -62,7 +62,6 @@
   <td class="col-check">{showRow || done ? '✓' : ''}</td>
   <td class="commodity-name">
     {commodity.name}
-    {#if available}<span class="in-stock-badge">In stock</span>{/if}
     {#if showStation}
       <StationBadge {commodity} {stationGroups} />
     {/if}
@@ -71,39 +70,39 @@
     {/if}
   </td>
 
-  {#if mode === 'collecting'}
-    <td>{collectingDone ? '' : commodity.amount_required}</td>
-    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-    <td class:col-carrier={!collectingDone && cargo.fc > 0} onclick={handleCarrierClick}>
-      {#if editing}
-        <Stepper value={cargo.fc} onSave={handleStepperSave} />
-      {:else if collectingDone}
-        {''}
-      {:else}
-        {cargo.fc > 0 ? cargo.fc : '—'}
-      {/if}
-    </td>
-    <td>{collectingDone ? '' : gapDisplay}</td>
-    <td>{collectingDone ? '' : (cargo.ship > 0 ? cargo.ship : '—')}</td>
-  {:else if mode === 'delivering'}
-    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-    <td class:col-carrier={!allSitesDone && cargo.fc > 0} onclick={handleCarrierClick}>
-      {#if editing}
-        <Stepper value={cargo.fc} onSave={handleStepperSave} />
-      {:else if allSitesDone}
-        {''}
-      {:else}
-        {cargo.fc > 0 ? cargo.fc : '—'}
-      {/if}
-    </td>
-    {#each activeConstructions as con}
-      {@const siteData = commodity.sites?.get(con.id)}
-      {@const siteRemaining = siteData ? siteData.remaining : 0}
-      <td>{siteRemaining > 0 ? siteRemaining : (siteRemaining === 0 ? '✓' : '—')}</td>
-    {/each}
-  {:else if mode === 'single-site'}
-    <td>{done ? '' : remaining}</td>
-    <td>{done ? '' : commodity.amount_required}</td>
+{#if mode === 'collecting'}
+     <td class="col-total">{collectingDone ? '' : commodity.amount_required}</td>
+     <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+     <td class:col-carrier={!collectingDone && cargo.fc > 0} onclick={handleCarrierClick}>
+       {#if editing}
+         <Stepper value={cargo.fc} onSave={handleStepperSave} />
+       {:else if collectingDone}
+         {''}
+       {:else}
+         {cargo.fc > 0 ? cargo.fc : '—'}
+       {/if}
+     </td>
+     <td class="col-remaining">{collectingDone ? '' : gapDisplay}</td>
+     <td>{collectingDone ? '' : (cargo.ship > 0 ? cargo.ship : '—')}</td>
+   {:else if mode === 'delivering'}
+     <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+     <td class:col-carrier={!allSitesDone && cargo.fc > 0} onclick={handleCarrierClick}>
+       {#if editing}
+         <Stepper value={cargo.fc} onSave={handleStepperSave} />
+       {:else if allSitesDone}
+         {''}
+       {:else}
+         {cargo.fc > 0 ? cargo.fc : '—'}
+       {/if}
+     </td>
+     {#each activeConstructions as con}
+       {@const siteData = commodity.sites?.get(con.id)}
+       {@const siteRemaining = siteData ? siteData.remaining : 0}
+       <td class="col-remaining">{siteRemaining > 0 ? siteRemaining : (siteRemaining === 0 ? '✓' : '—')}</td>
+     {/each}
+   {:else if mode === 'single-site'}
+     <td class="col-remaining">{done ? '' : remaining}</td>
+     <td class="col-total">{done ? '' : commodity.amount_required}</td>
     <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
     <td class:col-carrier={!done && cargo.fc > 0} onclick={handleCarrierClick}>
       {#if editing}
@@ -138,7 +137,9 @@
   }
 
   .available-here {
-    background: rgba(26, 174, 57, 0.06);
+    background: var(--color-in-stock-bg);
+    border-left: 3px solid var(--color-success);
+    padding-left: calc(var(--space-lg) - 3px);
   }
 
   .col-check {
@@ -150,17 +151,6 @@
 
   .commodity-name {
     font-weight: 500;
-  }
-
-  .in-stock-badge {
-    display: inline-block;
-    background: rgba(26, 174, 57, 0.12);
-    color: var(--color-success);
-    font-size: 0.6875rem;
-    font-weight: 600;
-    padding: 1px 6px;
-    border-radius: var(--radius-pill);
-    margin-left: var(--space-sm);
   }
 
   .col-carrier {

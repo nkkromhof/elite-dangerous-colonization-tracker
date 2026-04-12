@@ -6,6 +6,7 @@
   import { isCommodityComplete } from '../../utils/format.js';
   import { refreshStations, deleteCommoditySlot } from '../../utils/api.js';
   import CommodityPicker from '../commodities/CommodityPicker.svelte';
+  import { isAvailableAtStation } from '../../stores/station.svelte.js';
 
   let construction = $derived(getActive());
 
@@ -25,6 +26,14 @@
       const aDone = a.amount_delivered >= a.amount_required;
       const bDone = b.amount_delivered >= b.amount_required;
       if (aDone !== bDone) return aDone ? 1 : -1;
+      const aAvail = !aDone && isAvailableAtStation(a.name);
+      const bAvail = !bDone && isAvailableAtStation(b.name);
+      if (aAvail !== bAvail) return aAvail ? -1 : 1;
+      if (aAvail && bAvail) {
+        const aRem = a.amount_required - a.amount_delivered;
+        const bRem = b.amount_required - b.amount_delivered;
+        return bRem - aRem;
+      }
       return b.amount_required - a.amount_required;
     });
   });
@@ -131,7 +140,7 @@
     opacity: 0.6;
   }
 
-  :global(.col-total) { color: var(--color-text-primary); font-weight: 600; }
+  :global(.col-total) { color: var(--color-text-muted); }
   :global(.col-carrier) { color: var(--color-teal); font-weight: 600; }
   :global(.col-remaining) { color: var(--color-warning); font-weight: 600; }
   :global(.col-ship) { color: var(--color-primary); font-weight: 600; }
