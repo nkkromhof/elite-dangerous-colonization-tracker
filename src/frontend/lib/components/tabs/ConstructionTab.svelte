@@ -71,6 +71,9 @@
   <p class="empty-state">No construction selected</p>
 {:else}
   <div class="construction-card" class:completed={isComplete}>
+    {#if sortedCommodities.length === 0}
+      <p class="scan-hint">Open <strong>Construction Services</strong> while docked to retrieve the required commodities list.</p>
+    {:else}
     <CommodityTable
       headers={construction.type === 'manual'
         ? ['NAME', 'REMAINING', 'TOTAL', 'CARRIER', 'SHIP', '']
@@ -107,6 +110,7 @@
         {/if}
       </div>
     {/if}
+    {/if}
   </div>
 {/if}
 
@@ -114,6 +118,13 @@
   .empty-state {
     color: var(--color-text-muted);
     padding: var(--space-2xl);
+  }
+
+  .scan-hint {
+    color: var(--color-text-muted);
+    padding: var(--space-xl) var(--space-2xl);
+    font-size: 0.9375rem;
+    line-height: 1.6;
   }
 
   .construction-card.completed {
