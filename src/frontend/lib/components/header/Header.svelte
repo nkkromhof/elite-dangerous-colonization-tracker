@@ -1,6 +1,6 @@
 <script>
   import StatusWidget from './StatusWidget.svelte';
-  import { getZoom, setZoom, getTheme, toggleTheme } from '../../stores/ui.svelte.js';
+  import { getZoom, setZoom, getTheme, toggleTheme, getVrMode, toggleVrMode } from '../../stores/ui.svelte.js';
 
   let { onOpenArchived } = $props();
 
@@ -9,6 +9,7 @@
 
   let zoomDisplay = $derived(Math.round(getZoom() * 100) + '%');
   let isDark = $derived(getTheme() === 'dark');
+  let isVr = $derived(getVrMode());
 </script>
 
 <header class="header">
@@ -19,6 +20,19 @@
     <button class="zoom-btn" onclick={zoomIn} disabled={getZoom() >= 2.0}>+</button>
   </div>
   <div class="header-status">
+    <button
+      class="vr-toggle-btn"
+      class:vr-active={isVr}
+      onclick={toggleVrMode}
+      title="Toggle VR mode"
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z"/>
+        <circle cx="8" cy="12" r="2"/>
+        <circle cx="16" cy="12" r="2"/>
+        <path d="M12 8v2"/>
+      </svg>
+    </button>
     <button class="theme-toggle-btn" onclick={toggleTheme} title="Toggle dark/light mode">
       {#if isDark}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -94,7 +108,7 @@
     color: var(--color-text-primary);
   }
 
-  .header-btn svg, .theme-toggle-btn svg {
+  .header-btn svg, .theme-toggle-btn svg, .vr-toggle-btn svg {
     width: 18px;
     height: 18px;
     flex-shrink: 0;
@@ -157,4 +171,30 @@
     border-color: var(--color-primary);
     color: var(--color-text-primary);
   }
+
+  .vr-toggle-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-md) var(--space-lg);
+    background: var(--color-bg-subtle);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-micro);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.2s ease;
+  }
+
+  .vr-toggle-btn:hover {
+    border-color: var(--color-primary);
+    color: var(--color-text-primary);
+  }
+
+  .vr-toggle-btn.vr-active {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
+
+
 </style>
