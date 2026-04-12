@@ -124,8 +124,8 @@ export function findCachedStationsForCommodityLenient(nameInternal, freshMaxAgeD
 
   const excludeClause = excludeMarketId != null ? 'AND s.market_id != ?' : '';
   const params = excludeMarketId != null
-    ? [nameInternal, freshCutoff, nameInternal, staleCutoff, staleMinSupply, excludeMarketId]
-    : [nameInternal, freshCutoff, nameInternal, staleCutoff, staleMinSupply];
+    ? [freshCutoff, nameInternal, freshCutoff, staleCutoff, staleMinSupply, excludeMarketId]
+    : [freshCutoff, nameInternal, freshCutoff, staleCutoff, staleMinSupply];
 
   const rows = db.query(
     `SELECT s.market_id, s.station_name, s.system_name,

@@ -1,6 +1,7 @@
 <script>
   import { fetchCommodities, setCommodityRequired } from '../../utils/api.js';
   import { updateCommodity } from '../../stores/constructions.svelte.js';
+  import Stepper from '../controls/Stepper.svelte';
 
   let { constructionId } = $props();
 
@@ -11,7 +12,6 @@
   let submitting = $state(false);
   let showDropdown = $state(false);
   let inputEl = $state(null);
-  let qtyEl = $state(null);
   let dropdownPos = $state({ top: 0, left: 0, width: 0 });
 
   $effect(() => {
@@ -34,7 +34,6 @@
     selected = c;
     query = c.name;
     showDropdown = false;
-    setTimeout(() => qtyEl?.focus(), 0);
   }
 
   function handleQueryInput() {
@@ -45,11 +44,18 @@
     showDropdown = true;
   }
 
-  async function handleAdd() {
-    if (!selected || quantity < 1 || submitting) return;
+  async function handleStepperSave(value) {
+    if (value === null) {
+      query = '';
+      selected = null;
+      quantity = 1;
+      showDropdown = false;
+      return;
+    }
+    if (!selected || value < 1 || submitting) return;
     submitting = true;
     const name = selected.name;
-    const res = await setCommodityRequired(constructionId, name, quantity);
+    const res = await setCommodityRequired(constructionId, name, value);
     const slots = await res.json();
     const slot = slots.find(s => s.name.toLowerCase() === name.toLowerCase());
     if (slot) updateCommodity(constructionId, slot);
@@ -61,13 +67,8 @@
   }
 
   function handleSearchKeydown(e) {
-    if (e.key === 'Enter' && selected) { handleAdd(); return; }
     if (e.key === 'ArrowDown' && filtered.length > 0) selectCommodity(filtered[0]);
     if (e.key === 'Escape') { query = ''; selected = null; showDropdown = false; }
-  }
-
-  function handleQtyKeydown(e) {
-    if (e.key === 'Enter') handleAdd();
   }
 </script>
 
@@ -104,23 +105,9 @@
         {/each}
       </ul>
     {/if}
-    <input
-      class="picker-qty"
-      type="number"
-      min="1"
-      max="99999"
-      bind:this={qtyEl}
-      bind:value={quantity}
-      onkeydown={handleQtyKeydown}
-      placeholder="Qty"
-    />
-    <button
-      class="picker-add"
-      onclick={handleAdd}
-      disabled={!selected || quantity < 1 || submitting}
-    >
-      {submitting ? '…' : 'Add'}
-    </button>
+    {#if selected}
+      <Stepper value={quantity} min={1} onSave={handleStepperSave} />
+    {/if}
   </div>
 </div>
 
@@ -202,41 +189,4 @@
     color: var(--color-primary);
   }
 
-  .picker-qty {
-    width: 120px;
-    padding: var(--space-sm) var(--space-lg);
-    background: var(--color-bg-subtle);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-micro);
-    font-size: 0.875rem;
-    color: var(--color-text-primary);
-    font-family: inherit;
-    text-align: right;
-  }
-
-  .picker-qty:focus {
-    outline: none;
-    border-color: var(--color-primary);
-  }
-
-  .picker-add {
-    padding: var(--space-sm) var(--space-xl);
-    background: var(--color-primary);
-    border: none;
-    border-radius: var(--radius-micro);
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: white;
-    cursor: pointer;
-    font-family: inherit;
-  }
-
-  .picker-add:disabled {
-    opacity: 0.35;
-    cursor: not-allowed;
-  }
-
-  .picker-add:hover:not(:disabled) {
-    opacity: 0.85;
-  }
 </style>

@@ -44,12 +44,14 @@
     }
   }
 
-  function handleSave() {
+  function handleSave(e) {
+    e?.stopPropagation();
     clearTimers();
     onSave?.(editValue);
   }
 
-  function handleCancel() {
+  function handleCancel(e) {
+    e?.stopPropagation();
     clearTimers();
     onSave?.(null);
   }
@@ -65,42 +67,32 @@
 <svelte:window onmouseup={clearTimers} ontouchend={clearTimers} />
 
 <div class="stepper-cell">
-  <div class="stepper-control">
-    <button
-      class="stepper-btn"
-      onmousedown={(e) => { e.preventDefault(); startHold(-1); }}
-      ontouchstart={(e) => { e.preventDefault(); startHold(-1); }}
-      onclick={() => handleClick(-1)}
-    >−</button>
-    <input
-      type="number"
-      class="stepper-input"
-      bind:value={editValue}
-      {min}
-      onkeydown={handleKeydown}
-      onclick={(e) => e.stopPropagation()}
-    />
-    <button
-      class="stepper-btn"
-      onmousedown={(e) => { e.preventDefault(); startHold(1); }}
-      ontouchstart={(e) => { e.preventDefault(); startHold(1); }}
-      onclick={() => handleClick(1)}
-    >+</button>
-  </div>
-  <div class="stepper-actions">
-    <button class="stepper-save" onclick={handleSave}>Save</button>
-    <button class="stepper-cancel" onclick={handleCancel}>Cancel</button>
-  </div>
+  <button
+    class="stepper-btn"
+    onmousedown={(e) => { e.preventDefault(); startHold(-1); }}
+    ontouchstart={(e) => { e.preventDefault(); startHold(-1); }}
+    onclick={() => handleClick(-1)}
+  >−</button>
+  <input
+    type="number"
+    class="stepper-input"
+    bind:value={editValue}
+    {min}
+    onkeydown={handleKeydown}
+    onclick={(e) => e.stopPropagation()}
+  />
+  <button
+    class="stepper-btn"
+    onmousedown={(e) => { e.preventDefault(); startHold(1); }}
+    ontouchstart={(e) => { e.preventDefault(); startHold(1); }}
+    onclick={() => handleClick(1)}
+  >+</button>
+  <button class="stepper-btn stepper-save" onclick={(e) => handleSave(e)}>✓</button>
+  <button class="stepper-btn stepper-cancel" onclick={(e) => handleCancel(e)}>×</button>
 </div>
 
 <style>
   .stepper-cell {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-sm);
-  }
-
-  .stepper-control {
     display: flex;
     align-items: center;
     gap: var(--space-xs);
@@ -156,38 +148,22 @@
     -moz-appearance: textfield;
   }
 
-  .stepper-actions {
-    display: flex;
-    gap: var(--space-sm);
-  }
-
-  .stepper-save, .stepper-cancel {
-    flex: 1;
-    padding: var(--space-sm) var(--space-md);
-    border-radius: var(--radius-micro);
-    font-size: 0.75rem;
-    font-weight: 600;
-    cursor: pointer;
-    border: 1px solid var(--color-border);
-    transition: all 0.15s;
-  }
-
   .stepper-save {
-    background: var(--color-teal);
-    color: white;
     border-color: var(--color-teal);
+    color: var(--color-teal);
   }
 
   .stepper-save:hover {
-    opacity: 0.9;
+    background: var(--color-teal);
+    color: white;
   }
 
   .stepper-cancel {
-    background: var(--color-bg-subtle);
-    color: var(--color-text-secondary);
+    color: var(--color-text-muted);
   }
 
   .stepper-cancel:hover {
-    background: var(--color-border);
+    border-color: var(--color-danger);
+    color: var(--color-danger);
   }
 </style>

@@ -152,7 +152,7 @@ body.dark-mode {
 /* ===== VR MODE ===== */
 
 body.vr-mode {
-  --vr-scale: 1.5;
+  --vr-scale: 2;
   --space-xs: 3px;
   --space-sm: 6px;
   --space-md: 12px;

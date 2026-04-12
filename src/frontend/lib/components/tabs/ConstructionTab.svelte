@@ -82,7 +82,11 @@
 {:else}
   <div class="construction-card" class:completed={isComplete}>
     {#if sortedCommodities.length === 0}
-      <p class="scan-hint">Open <strong>Construction Services</strong> while docked to retrieve the required commodities list.</p>
+      {#if construction.type === 'manual'}
+        <CommodityPicker constructionId={construction.id} />
+      {:else}
+        <p class="scan-hint">Open <strong>Construction Services</strong> while docked to retrieve the required commodities list.</p>
+      {/if}
     {:else}
     <StationBar {stationGroups} />
     <CommodityTable
@@ -104,6 +108,7 @@
           mode="single-site"
           allowStepper={true}
           onRemove={construction.type === 'manual' ? handleRemoveCommodity : null}
+          constructionId={construction.type === 'manual' ? construction.id : null}
         />
       {/each}
     </CommodityTable>

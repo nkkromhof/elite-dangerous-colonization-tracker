@@ -301,15 +301,13 @@ export class StationLookupService {
         const key = `${ls.stationName}|${ls.systemName}`;
         if (stationMap.has(key)) continue;
 
-        if (!stationMap.has(key)) {
-          stationMap.set(key, {
-            station: ls.stationName,
-            system: ls.systemName,
-            distanceLy: ls.distanceLy,
-            commodities: new Map(),
-            isStale: ls.isStale,
-          });
-        }
+        stationMap.set(key, {
+          station: ls.stationName,
+          system: ls.systemName,
+          distanceLy: ls.distanceLy,
+          commodities: new Map(),
+          isStale: ls.isStale,
+        });
         stationMap.get(key).commodities.set(slot.name_internal, ls.stock);
       }
     }

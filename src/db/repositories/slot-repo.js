@@ -40,16 +40,6 @@ export function getCommoditySlot(constructionId, name) {
   ).get(constructionId, name);
 }
 
-export function getCommoditySlot(constructionId, name) {
-  return getDb().query(
-    `SELECT cs.*, lc.station AS nearest_station, lc.system AS nearest_system,
-            lc.supply AS nearest_supply, lc.distance_ly AS nearest_distance, lc.queried_at AS nearest_queried_at
-     FROM commodity_slots cs
-     LEFT JOIN slot_lookup_cache lc ON lc.slot_id = cs.id
-     WHERE cs.construction_id = ? AND cs.name = ?`
-  ).get(constructionId, name);
-}
-
 export function incrementDelivered(constructionId, commodityName, amount) {
   const result = getDb().run(
     `UPDATE commodity_slots

@@ -101,6 +101,18 @@ export async function setCommodityRequired(constructionId, name, amount_required
 }
 
 /**
+ * Increment (or decrement) the delivered amount for a commodity slot.
+ * Pass a positive delta to record delivery, negative to correct an over-count.
+ */
+export async function setCommodityDelivered(constructionId, name, delta) {
+  return fetch(`/api/constructions/${constructionId}/commodities/${encodeURIComponent(name)}`, {
+    method: 'PATCH',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ amount_delivered: delta }),
+  });
+}
+
+/**
  * Delete a commodity slot from a manual construction.
  */
 export async function deleteCommoditySlot(constructionId, name) {

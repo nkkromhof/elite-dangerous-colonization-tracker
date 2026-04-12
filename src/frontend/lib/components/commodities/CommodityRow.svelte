@@ -4,7 +4,7 @@
   import { getCargoForCommodity } from '../../stores/cargo.svelte.js';
   import { isAvailableAtStation } from '../../stores/station.svelte.js';
   import { isCommodityComplete } from '../../utils/format.js';
-  import { updateFcCargo } from '../../utils/api.js';
+  import { updateFcCargo, setCommodityDelivered } from '../../utils/api.js';
 
 /**
  * @type {{
@@ -14,12 +14,13 @@
  *   allowStepper?: boolean
  * }}
  */
-let { commodity, mode, activeConstructions = [], allowStepper = false, onRemove = null } = $props();
+let { commodity, mode, activeConstructions = [], allowStepper = false, onRemove = null, constructionId = null } = $props();
 
 let done = $derived(isCommodityComplete(commodity));
 let available = $derived(!done && isAvailableAtStation(commodity.name));
 let cargo = $derived(getCargoForCommodity(commodity.name));
 let editing = $state(false);
+let editingDelivered = $state(false);
 
 let remaining = $derived(Math.max(0, commodity.amount_required - commodity.amount_delivered));
 let gap = $derived(commodity.amount_required - cargo.fc - cargo.ship);
@@ -52,6 +53,19 @@ async function handleStepperSave(newValue) {
 function handleCarrierClick() {
   if (!allowStepper || editing) return;
   editing = true;
+}
+
+function handleDeliveredClick() {
+  if (!constructionId || editingDelivered || done) return;
+  editingDelivered = true;
+}
+
+async function handleDeliveredSave(newValue) {
+  editingDelivered = false;
+  if (newValue === null) return;
+  const delta = newValue - commodity.amount_delivered;
+  if (delta === 0) return;
+  await setCommodityDelivered(constructionId, commodity.name, delta);
 }
 </script>
 
@@ -98,7 +112,14 @@ function handleCarrierClick() {
        <td class="col-remaining">{siteRemaining > 0 ? siteRemaining : (siteRemaining === 0 ? '✓' : '—')}</td>
      {/each}
    {:else if mode === 'single-site'}
-     <td class="col-remaining">{done ? '' : remaining}</td>
+    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+    <td class:col-remaining={!done} class:editable-cell={!!constructionId && !done} onclick={handleDeliveredClick}>
+      {#if editingDelivered}
+        <Stepper value={commodity.amount_delivered} min={0} onSave={handleDeliveredSave} />
+      {:else}
+        {done ? '' : remaining}
+      {/if}
+    </td>
      <td class="col-total">{done ? '' : commodity.amount_required}</td>
     <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
     <td class:col-carrier={!done && cargo.fc > 0} onclick={handleCarrierClick}>
@@ -154,6 +175,14 @@ function handleCarrierClick() {
     cursor: pointer;
     color: var(--color-teal);
     font-weight: 600;
+  }
+
+  .editable-cell {
+    cursor: pointer;
+  }
+
+  .editable-cell:hover {
+    color: var(--color-warning);
   }
 
   td {
