@@ -14,7 +14,7 @@
     restoreConstruction,
     ALL_TAB_ID,
   } from './lib/stores/constructions.svelte.js';
-  import { getZoom, getTheme } from './lib/stores/ui.svelte.js';
+  import { getZoom, getTheme, getVrMode } from './lib/stores/ui.svelte.js';
   import {
     archiveConstruction,
     unarchiveConstruction,
@@ -41,6 +41,14 @@
       document.body.classList.add('dark-mode');
     } else {
       document.body.classList.remove('dark-mode');
+    }
+  });
+
+  $effect(() => {
+    if (getVrMode()) {
+      document.body.classList.add('vr-mode');
+    } else {
+      document.body.classList.remove('vr-mode');
     }
   });
 
